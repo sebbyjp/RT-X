@@ -6,6 +6,7 @@ Pytorch implementation of the models RT-1-X and RT-2-X from the paper: "Open X-E
 Here we implement both model architectures, RTX-1 and RTX-2
 
 [Paper Link](https://robotics-transformer-x.github.io/)
+[OpenX-Embodiment Huggingface Datasets](https://huggingface.co/datasets/jxu124/OpenX-Embodiment)
 
 - The RTX-2 Implementation does not natively output for simplicity a 7 dimensional vector but rather text tokens, if you wanted to output 7 dimensional vector you could implement the same token learner as in RTX1
 
