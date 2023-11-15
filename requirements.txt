@@ -34,6 +34,7 @@ multidict==6.0.4
 multiprocess==0.70.15
 networkx==3.2.1
 numpy==1.26.2
+olefile==0.46
 open-clip-torch==2.23.0
 packaging==23.2
 pandas==2.1.3
