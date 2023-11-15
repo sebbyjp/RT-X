@@ -116,7 +116,7 @@ ds = datasets.load_dataset(
 # describe(next(iter(ds)))
 
 loader = DataLoader(
-    ds.map(lambda x: remove_nonetypes(x["data.pickle"]), 256), batch_size=1, num_workers=0
+    ds.map(lambda x: remove_nonetypes(x["data.pickle"])), batch_size=1, num_workers=0
 )
 
 for batch in loader:
