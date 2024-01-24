@@ -28,7 +28,8 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
     )
-
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
@@ -37,9 +38,9 @@ def run(model: torch.nn.Module, action_tokenizer):
         print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(dataloader)):
             # batch, frames, height, width, channels -> batch, channels, frames, height, width
-            video = torch.permute(sample['observation']['image_primary'],(0,4,1,2,3)) / 255.0
-            instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action']).reshape(-1,1).squeeze().long()
+            video = (torch.permute(sample['observation']['image_primary'],(0,4,1,2,3)) / 255.0).to(device)
+            instructions = sample['language_instruction'].to(device)
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action']).reshape(-1,1).squeeze().long().to(device)
 
             optimizer.zero_grad()
             out = model.train(video, instructions).reshape(-1, 256)
