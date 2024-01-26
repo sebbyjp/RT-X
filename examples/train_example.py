@@ -30,14 +30,21 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
     )
+    steps_per_epoch = len(dataloader)
+    warmup_period = 1000
+    num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
+    t0 = num_steps // 3
+    lr_min = 3e-5
+    max_step = t0 * 3 + warmup_period
+
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.01)
+    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.001)
 
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
-    warmup_period = 1000
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
+
     warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
     step_num = 0
@@ -69,6 +76,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             with warmup_scheduler.dampening():
                 if warmup_scheduler.last_step + 1 >= warmup_period:
                     lr_scheduler.step()
+            if warmup_scheduler.last_step + 1 >= max_step:
+                break
             writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
          
         # save model
