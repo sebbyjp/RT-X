@@ -69,7 +69,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             with warmup_scheduler.dampening():
                 if warmup_scheduler.last_step + 1 >= warmup_period:
                     lr_scheduler.step()
-            writer.add_scalar('lr', lr_scheduler.get_lr(), step_num)
+            writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
          
         # save model
         os.makedirs('checkpoints', exist_ok=True)

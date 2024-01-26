@@ -1,5 +1,6 @@
 torch
 torchvision
+pytorch_warmup==0.1.1
 torch-tb-profiler ==0.4.3
 tensorboardx ==2.6.2.2
 tensorboard ==2.15.1
