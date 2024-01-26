@@ -861,7 +861,7 @@ class RT1(nn.Module):
         depth = self.transformer_depth
         cond_drop_prob = default(cond_drop_prob, self.cond_drop_prob)
 
-        frames, device = video.shape[2], video.device
+        frames, device = video.shape[1], video.device
 
         cond_fns, _ = self.conditioner(
             **cond_kwargs,
@@ -875,7 +875,7 @@ class RT1(nn.Module):
         vit_cond_fns, transformer_cond_fns =  cond_fns[: -(depth * 2)], cond_fns[-(depth * 2) :]
         
 
-        video = rearrange(video, "b c f h w -> b f c h w")
+        # video = rearrange(video, "b c f h w -> b f c h w")
         images, packed_shape = pack_one(video, "* c h w")
 
         tokens = self.vit(

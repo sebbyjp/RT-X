@@ -7,7 +7,8 @@ from rtx.data.util import write_dict_to
 from rtx.data.dataset import get_oxe_dataset, TorchRLDSDataset
 from tensorboardX import SummaryWriter
 import os
-# tf.config.set_visible_devices([], "GPU")
+import tensorflow as tf
+tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
 
@@ -32,27 +33,31 @@ def run(model: torch.nn.Module, action_tokenizer):
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.01)
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(dataloader)):
             # batch, frames, height, width, channels -> batch, channels, frames, height, width
-            video = (torch.permute(sample['observation']['image_primary'],(0,4,1,2,3)) / 255.0).to(device)
-            instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action']).reshape(-1,1).squeeze().long().to(device)
+            with torch.no_grad():
+                video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
+                instructions = sample['language_instruction']
+                ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action']).reshape(-1,1).squeeze().long().to(device)
 
             optimizer.zero_grad()
             out = model.train(video, instructions).reshape(-1, 256)
             loss = criterion(out, ground_truth)
             loss.backward()
             optimizer.step()
-            writer.add_scalar('loss', loss, step_num)
-            
-            if (i+1) % 10 == 0:
-                # writer.add_image('last img first sample', sample['observation']['image_primary'][0,-1,:,:,:].numpy(), step_num)
-                write_dict_to('last_action_first_batch_sample', writer, {'act': sample['action'][0,-1,:]} , step_num)
-                writer.add_text('instruction_first_batch_sample', sample['language_instruction'][0], step_num)
+
+            writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
+            del video
+            del instructions
+            del ground_truth
+            # if (i+1) % 10 == 0:
+            #     # writer.add_image('last img first sample', sample['observation']['image_primary'][0,-1,:,:,:].numpy(), step_num)
+            #     write_dict_to('last_action_first_batch_sample', writer, {'act': sample['action'][0,-1,:]} , step_num)
+            #     writer.add_text('instruction_first_batch_sample', sample['language_instruction'][0], step_num)
             step_num += 1
 
         # save model
