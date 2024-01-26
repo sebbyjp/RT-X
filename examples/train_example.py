@@ -23,7 +23,7 @@ flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 def run(model: torch.nn.Module, action_tokenizer):
     writer = SummaryWriter()
     dataset = get_oxe_dataset(FLAGS.dataset_name)
-    steps_per_epoch = len(dataset) // FLAGS.batch_size
+    steps_per_epoch = 5900
  
     pytorch_dataset = TorchRLDSDataset(dataset)
     dataloader = DataLoader(
