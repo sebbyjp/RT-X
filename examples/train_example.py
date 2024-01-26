@@ -39,7 +39,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         for i, sample in tqdm.tqdm(enumerate(dataloader)):
             # batch, frames, height, width, channels -> batch, channels, frames, height, width
             video = (torch.permute(sample['observation']['image_primary'],(0,4,1,2,3)) / 255.0).to(device)
-            instructions = sample['language_instruction'].to(device)
+            instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action']).reshape(-1,1).squeeze().long().to(device)
 
             optimizer.zero_grad()

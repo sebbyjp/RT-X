@@ -99,9 +99,10 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
     # (this is a very small one for faster loading)
     # "austin_buds_dataset_converted_externally_to_rlds",
     name,
+    
     # can be local or on cloud storage (anything supported by TFDS)
     # "/path/to/base/oxe/directory",
-    "gs://gresearch/robotics",
+    data_dir,
     action_proprio_normalization_type= NormalizationType.NONE,
     )
     logging.info("Creating single OXE dataset {} from {}".format(name, data_dir))
