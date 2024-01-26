@@ -33,15 +33,15 @@ def run(model: torch.nn.Module, action_tokenizer):
     )
     warmup_period = 1000
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
-    t0 = num_steps // 3
-    lr_min = 3e-5
+    t0 = num_steps // 15
+    lr_min = 5e-6
     max_step = t0 * 3 + warmup_period
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
