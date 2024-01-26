@@ -41,7 +41,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=0.001, weight_decay=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.001)
 
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
