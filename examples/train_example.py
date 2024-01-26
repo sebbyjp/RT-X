@@ -23,6 +23,7 @@ flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 def run(model: torch.nn.Module, action_tokenizer):
     writer = SummaryWriter()
     dataset = get_oxe_dataset(FLAGS.dataset_name)
+    steps_per_epoch = len(dataset) // FLAGS.batch_size
  
     pytorch_dataset = TorchRLDSDataset(dataset)
     dataloader = DataLoader(
@@ -30,7 +31,6 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
     )
-    steps_per_epoch = len(dataloader)
     warmup_period = 1000
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps // 3
