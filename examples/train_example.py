@@ -8,6 +8,7 @@ from rtx.data.dataset import get_oxe_dataset, TorchRLDSDataset
 from tensorboardX import SummaryWriter
 import os
 import tensorflow as tf
+import pytorch_warmup as warmup
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -34,6 +35,11 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.01)
+
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=10, T_mult=2)
+    warmup_period = 1000
+    warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
@@ -60,6 +66,11 @@ def run(model: torch.nn.Module, action_tokenizer):
             #     writer.add_text('instruction_first_batch_sample', sample['language_instruction'][0], step_num)
             step_num += 1
 
+            with warmup_scheduler.dampening():
+                if warmup_scheduler.last_step + 1 >= warmup_period:
+                    lr_scheduler.step()
+            writer.add_scalar('lr', lr_scheduler.get_lr(), step_num)
+         
         # save model
         os.makedirs('checkpoints', exist_ok=True)
         torch.save(model.state_dict(), f'checkpoints/{FLAGS.model}_{FLAGS.dataset_name}_step{step_num}.pt')
