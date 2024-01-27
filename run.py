@@ -1,6 +1,6 @@
 from examples import rtx1_example, rtx2_example, train_example
 from rtx import RTX1, RTX2
-from rtx.rtx1 import FilmViTConfig
+from rtx.rtx1 import FilmViTConfig, RT1Config
 from rtx.action_tokenization import RTX1ActionTokenizer
 from absl import app, flags, logging
 
@@ -25,6 +25,7 @@ EXAMPLE_SCRIPTS = {
 
 FLAGS = flags.FLAGS
 flags.DEFINE_boolean("pretrained_vit", False, "Whether to use a  pretrained ViT as a backbone or not.")
+flags.DEFINE_boolean("use_attn_text_conditioner", True, "Whether to use attention conditioning or not.")
 flags.DEFINE_enum("model", "rtx1", REGISTRY.keys(), "Model to choose from.")
 flags.DEFINE_enum("mode", "inference", MODES, "Experiment mode to run.")
 
@@ -34,7 +35,9 @@ def main(_):
     elif FLAGS.mode == "train":
         if FLAGS.pretrained_vit and FLAGS.model == "rtx2":
             logging.fatal("Option `pretrained_vit` is not available for model {} ".format(FLAGS.model))
-        model = REGISTRY[FLAGS.model]['model'](vit_config= FilmViTConfig(pretrained= FLAGS.pretrained_vit))
+        model = REGISTRY[FLAGS.model]['model'](
+            rt1_config = RT1Config(use_attn_conditioner=FLAGS.use_attn_text_conditioner),
+            vit_config= FilmViTConfig(pretrained= FLAGS.pretrained_vit))
         action_tokenizer = REGISTRY[FLAGS.model]['action_tokenizer']()
         train_example.run(model, action_tokenizer)
 

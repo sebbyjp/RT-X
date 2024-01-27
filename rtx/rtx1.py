@@ -1005,7 +1005,7 @@ class RTX1(nn.Module):
             vit=self.vit,
         )
 
-    def train(self, video, instructions):
+    def train_step(self, video, instructions):
         """
         Computes the logits for the given video and instructions using the RT1 model in training mode.
 
@@ -1023,6 +1023,7 @@ class RTX1(nn.Module):
         """
 
         try:
+            self.model.train()
             train_logits = self.model(video, instructions)
             return train_logits
         except Exception as e:

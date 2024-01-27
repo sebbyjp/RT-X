@@ -45,7 +45,7 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
 
 
 
-def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics") -> DLataset:
+def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True) -> DLataset:
 
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
@@ -57,7 +57,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
     return make_interleaved_dataset(
         dataset_kwargs_list,
         sample_weights,
-        train=True,
+        train=train,
         shuffle_buffer_size=500000,  # change to 500k for training, large shuffle buffers are important, but adjust to your RAM
         batch_size=None,  # batching will be handles in PyTorch Dataloader object
         balance_weights=True,
@@ -93,7 +93,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
         traj_read_threads=48,
     )
 
-def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics") -> DLataset:
+def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True) -> DLataset:
     dataset_kwargs = make_oxe_dataset_kwargs(
     # see octo/data/oxe/oxe_dataset_configs.py for available datasets
     # (this is a very small one for faster loading)
@@ -106,7 +106,7 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
     action_proprio_normalization_type= NormalizationType.NONE,
     )
     logging.info("Creating single OXE dataset {} from {}".format(name, data_dir))
-    return make_single_dataset(dataset_kwargs, train=True,
+    return make_single_dataset(dataset_kwargs, train=train,
       traj_transform_kwargs=dict(
             goal_relabeling_strategy=None,
             window_size=6,
@@ -133,14 +133,14 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
             resize_size=dict(
                 primary=(224, 224),
             ),
-            num_parallel_calls=30,
-        ),).flatten().shuffle(buffer_size=100)
+            num_parallel_calls=10,
+        ),).flatten().shuffle(buffer_size=50)
 
-def get_oxe_dataset(name: str = "fractal20220817_data") -> DLataset:
+def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True) -> DLataset:
     if name in DATASET_MIXES:
-        return get_interleaved_oxe_dataset(name)
+        return get_interleaved_oxe_dataset(name, train=train)
     else:
-        return get_single_oxe_dataset(name)
+        return get_single_oxe_dataset(name, train=train)
 
 def get_hf_dataset(  
         dataset_path: str = "jxu124/OpenX-Embodiment",
