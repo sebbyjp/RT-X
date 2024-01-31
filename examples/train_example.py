@@ -111,7 +111,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
-        eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
+        model.to('cpu')
+        eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, 'cpu', FLAGS.baselines)
+        model.to(device)
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             with torch.no_grad():
