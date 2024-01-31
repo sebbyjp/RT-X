@@ -34,7 +34,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            if (eval_steps == 30):
+            if (eval_steps == 10):
                 break
             eval_steps += 1
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
@@ -77,6 +77,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
+        shuffle=True
     )
 
     eval_data_loader = DataLoader(
@@ -86,8 +87,8 @@ def run(model: torch.nn.Module, action_tokenizer):
         pin_memory=True,
     )
 
-    steps_per_epoch = 5900
-    warmup_period = 1000
+    steps_per_epoch = 500
+    warmup_period = 100
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps // 15
     lr_min = 1e-5
@@ -112,6 +113,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
+            if i == 500:
+                break
+            # print(sample['observation']['image_primary'].shape)
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             with torch.no_grad():
                 video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
