@@ -11,3 +11,4 @@ efficientnet_pytorch==0.7.1
 zetascale ==0.9.9
 classifier-free-guidance-pytorch ==0.5.1
 octo @ git+https://github.com/sebbyjp/octo.git@peralta
+robo-transformers @ git+https://github.com/sebbyjp/robo_transformers.git@peralta

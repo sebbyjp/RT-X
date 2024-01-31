@@ -101,8 +101,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
             eval_steps = 0.
             for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-                if (eval_steps == 1):
-                    break
+                # if (eval_steps == 1):
+                #     break
                 eval_steps += 1
                 video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to('cpu')
                 instructions = sample['language_instruction']
@@ -118,9 +118,12 @@ def run(model: torch.nn.Module, action_tokenizer):
                     batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32)
                     for i in range(video.shape[0]):
                         for j in range(video.shape[1]):
-                            out = baseline_model(image=(torch.permute(video[i,j,:,:,:], (1,2,0)) * 255.0).numpy(), instruction=instructions[i])
+                            out = baseline_model(image=(torch.permute(video[i,j,:,:,:], (1,2,0)) * 255.0).numpy(), instruction=instructions[i], save=False)
+                            # print(f' \n\n   {baseline} out',out)
                             out = action_tokenizer.tokenize_dict(out).long()
+                            # print(f' \n\n   {baseline} tokenized',out)
                             batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to('cpu')
+                    # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                     baselines[baseline]['loss'] += criterion(batch_actions.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).to('cpu')
                 
 
