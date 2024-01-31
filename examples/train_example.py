@@ -20,7 +20,7 @@ flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 
-def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_loader, criterion, baseline_keys=[]):
+def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, baseline_keys=[]):
         # evaluate
     print('evaluating')
     model.eval()
@@ -37,25 +37,25 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
             # if (eval_steps == 1):
             #     break
             eval_steps += 1
-            video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to('cpu')
+            video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], 'cpu')
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
             out = model.run(video, instructions)
 
-            eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).to('cpu')
-            single_one_hot = nn.functional.one_hot(torch.max(out[:,-1,:,:],-1)[1], 256).to('cpu').float()
+            eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).to(device)
+            single_one_hot = nn.functional.one_hot(torch.max(out[:,-1,:,:],-1)[1], 256).to(device).float()
             single_eval_loss += criterion(single_one_hot.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).detach().to('cpu')
 
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
-                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float16, device='cpu')
+                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float16, device=device)
                 for i in range(video.shape[0]):
                     for j in range(video.shape[1]):
                         out = baseline_model(image=(torch.permute(video[i,j,:,:,:], (1,2,0)) * 255.0).numpy(), instruction=instructions[i], save=False)
                         # print(f' \n\n   {baseline} out',out)
-                        out = action_tokenizer.tokenize_dict(out, 'cpu')
+                        out = action_tokenizer.tokenize_dict(out, device)
                         # print(f' \n\n   {baseline} tokenized',out)
-                        batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to('cpu')
+                        batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to(device)
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                 baselines[baseline]['loss'] += criterion(batch_actions.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).to('cpu').detach()
             
