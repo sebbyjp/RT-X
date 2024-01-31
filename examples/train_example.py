@@ -48,7 +48,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
 
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
-                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float16, device=device)
+                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32, device=device)
                 for i in range(video.shape[0]):
                     for j in range(video.shape[1]):
                         out = baseline_model(image=(torch.permute(video[i,j,:,:,:], (1,2,0)) * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
