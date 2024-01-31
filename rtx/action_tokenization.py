@@ -55,15 +55,15 @@ class RTX1ActionTokenizer:
 
         normalized_action = {}
         for k, v in action.items():
-            normalized_action[k] = torch.concatenate(v).squeeze()
-            normalized_action[k] = self.tokenize(normalized_action[k], self.bounds[k][0], self.bounds[k][1])
+            # normalized_action[k] = torch.concatenate(v).squeeze()
+            normalized_action[k] = self.tokenize(torch.tensor(action[k]), self.bounds[k][0], self.bounds[k][1])
 
         tokens = torch.zeros(11, dtype=torch.int32)
-        tokens[0:2] = normalized_action['base_displacement_vector']
-        tokens[2] = normalized_action['base_displacement_vertical_rotation']
+        # tokens[0:2] = normalized_action['base_displacement_vector']
+        # tokens[2] = normalized_action['base_displacement_vertical_rotation']
         tokens[3] = normalized_action['gripper_closedness_action']
         tokens[4:7] = normalized_action['rotation_delta']
-        tokens[7] = normalized_action['terminate_episode'][-1]
+        # tokens[7] = normalized_action['terminate_episode'][-1]
         tokens[8:] = normalized_action['world_vector']
         return tokens
 
