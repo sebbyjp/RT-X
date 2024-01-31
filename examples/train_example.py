@@ -77,7 +77,6 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
-        shuffle=True
     )
 
     eval_data_loader = DataLoader(
