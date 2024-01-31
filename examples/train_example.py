@@ -97,6 +97,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
+        model.run = model.module.run
+        model.train_step = model.module.train_step
     model.to(device)
 
     criterion = nn.CrossEntropyLoss()
