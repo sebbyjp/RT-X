@@ -17,6 +17,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
+flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 
 def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_loader, criterion, baseline_keys=[]):
@@ -143,8 +144,6 @@ def run(model: torch.nn.Module, action_tokenizer):
             writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
         
 
-
-        model.train()
         # save model
-        os.makedirs(f'checkpoints/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
-        torch.save(model.state_dict(), f'checkpoints/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+        os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
+        torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
