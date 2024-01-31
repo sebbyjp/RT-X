@@ -64,7 +64,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
     writer.add_scalar('single_eval_loss', single_eval_loss / eval_steps, step_num)
 
     for baseline in FLAGS.baselines:
-        writer.add_scalar(f"{baseline.split('/')[0]}_{baseline.split('/')[1]}_single_eval_loss", baselines[baseline]['loss'] / eval_steps, step_num)
+        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_loss", baselines[baseline]['loss'] / eval_steps, step_num)
 
 
 def run(model: torch.nn.Module, action_tokenizer):
@@ -112,6 +112,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
+            eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
             if i == 500:
                 break
             # print(sample['observation']['image_primary'].shape)
@@ -146,7 +147,6 @@ def run(model: torch.nn.Module, action_tokenizer):
             if warmup_scheduler.last_step + 1 >= max_step:
                 break
             writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
-        eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
         
 
         # save model
