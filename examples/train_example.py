@@ -111,7 +111,6 @@ def run(model: torch.nn.Module, action_tokenizer):
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
         print(f'epoch {epoch}')
-        eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             with torch.no_grad():
@@ -144,6 +143,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             if warmup_scheduler.last_step + 1 >= max_step:
                 break
             writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
+        eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
         
 
         # save model
