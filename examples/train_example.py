@@ -34,8 +34,8 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            # if (eval_steps == 1):
-            #     break
+            if (eval_steps == 30):
+                break
             eval_steps += 1
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
