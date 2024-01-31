@@ -53,7 +53,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer, step_num, eval_data_l
                     for j in range(video.shape[1]):
                         out = baseline_model(image=(torch.permute(video[i,j,:,:,:], (1,2,0)) * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
                         # print(f' \n\n   {baseline} out',out)
-                        out = action_tokenizer.tokenize_dict(out, 'cpu'
+                        out = action_tokenizer.tokenize_dict(out, 'cpu')
                         # print(f' \n\n   {baseline} tokenized',out)
                         batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to('cpu')
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
