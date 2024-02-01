@@ -10,7 +10,7 @@ import os
 import tensorflow as tf
 import pytorch_warmup as warmup
 import numpy as np
-# tf.config.set_visible_devices([], "GPU")
+tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
 
@@ -42,7 +42,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
             out = model.run(video, instructions)
 
-            eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).to(device)
+            eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).detach().to('cpu')
 
             action_tokens = torch.max(out[:,:,:,:],-1)[1]
             single_one_hot = nn.functional.one_hot(action_tokens[:,-1,:], 256).to(device).float()
