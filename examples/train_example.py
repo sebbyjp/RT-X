@@ -229,7 +229,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             if step_num % 100 == 0 and is_main_process():
                 eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
-
+                dist.barrier()
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             with torch.no_grad():
                 video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
