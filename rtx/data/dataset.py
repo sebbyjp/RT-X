@@ -116,7 +116,7 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
     action_proprio_normalization_type= NormalizationType.NONE,
     )
     logging.info("Creating single OXE dataset {} from {}".format(name, data_dir))
-    return (*make_single_dataset(dataset_kwargs, train=train,
+    dataset, dataset_statistics = make_single_dataset(dataset_kwargs, train=train,
       traj_transform_kwargs=dict(
             goal_relabeling_strategy=None,
             window_size=6,
@@ -144,7 +144,8 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
                 primary=(224, 224),
             ),
             num_parallel_calls=200,
-        ),).flatten().shuffle(buffer_size=100), None)
+        ),)
+    return (dataset.flatten().shuffle(buffer_size=100),dataset_statistics, None)
 
 def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True) -> (DLataset, dict, Optional[dict]) :
     if name in DATASET_MIXES:
