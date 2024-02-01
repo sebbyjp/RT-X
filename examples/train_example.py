@@ -165,8 +165,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     writer = None
     if is_main_process():
         writer = SummaryWriter()
-    train_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=True))
-    eval_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=False))
+    train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True), train=True)
+    eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False), train=False)
  
     train_data_loader = DataLoader(
         train_ds,

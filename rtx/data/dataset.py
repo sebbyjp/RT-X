@@ -16,9 +16,13 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
     def __init__(
         self,
         rlds_dataset,
+        dataset_statistics,
+        sample_weights = None,
         train=True,
     ):
         self._rlds_dataset = rlds_dataset
+        self.dataset_statistics = dataset_statistics
+        self.sample_weights = sample_weights
         # if not hasattr(self._rlds_dataset, "dataset_statistics"):
         #     self._rlds_dataset.dataset_statistics = get_dataset_statistics(
         #         self._rlds_dataset
@@ -36,11 +40,11 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
         lengths = np.array(
             [
                 stats["num_transitions"]
-                for stats in self._rlds_dataset.dataset_statistics
+                for stats in self.dataset_statistics
             ]
         )
-        if hasattr(self._rlds_dataset, "sample_weights"):
-            lengths *= np.array(self._rlds_dataset.sample_weights)
+        if self.sample_weights is not None:
+            lengths *= np.array(self.sample_weights)
         total_len = lengths.sum()
         if self._is_train:
             return int(0.95 * total_len)
