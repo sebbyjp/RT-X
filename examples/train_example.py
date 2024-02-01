@@ -190,7 +190,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
         )
 
-    steps_per_epoch = len(train_data_loader))
+    steps_per_epoch = len(train_data_loader)
     warmup_period = 1000
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps // 15
@@ -199,7 +199,6 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    fp16_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     if torch.cuda.is_available() and torch.cuda.device_count()  > 1:
         if is_main_process():
