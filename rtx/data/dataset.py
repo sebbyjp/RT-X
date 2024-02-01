@@ -8,7 +8,7 @@ import numpy as np
 import datasets
 from absl import logging
 from rtx.data.registry import DATASET_MIXES
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, get_worker_info
 import torch.distributed as dist
 
 
@@ -22,11 +22,16 @@ class TorchRLDSDataset(IterableDataset):
         rlds_dataset,
         dataset_statistics,
         sample_weights = None,
+        rank=0,
+        world_size=1,
         train=True,
     ):
         self._rlds_dataset = rlds_dataset
         self.dataset_statistics = dataset_statistics
         self.sample_weights = sample_weights
+        self.rank = rank
+        self.world_size = world_size
+       
         # if not hasattr(self._rlds_dataset, "dataset_statistics"):
         #     self._rlds_dataset.dataset_statistics = get_dataset_statistics(
         #         self._rlds_dataset
@@ -35,18 +40,16 @@ class TorchRLDSDataset(IterableDataset):
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
-        worker_id = worker_info.id
-        total_workers = worker_info.num_workers
-        if dist.is_available() and dist.is_initialized():
-            world_size = dist.get_world_size()
-            rank = dist.get_rank()
-        else:
-            world_size = 1
-            rank = 0
-        total_workers *= world_size
-        global_worker_id = worker_id * world_size + rank
+
+        mod = self.world_size
+        shift = self.rank
+
+        if worker_info:
+            mod *= worker_info.num_workers
+            shift = self.rank * worker_info.num_workers + worker_info.id
+
         for i, sample in enumerate(self._rlds_dataset.as_numpy_iterator()):
-            if i % total_workers == global_worker_id:
+             if (i + shift) % mod == 0:
                 yield {'observation': {"image_primary": sample['observation']['image_primary']},
                                 #    "image_wrist": sample['observation']['image_wrist']},
                    'action': sample['action'],
