@@ -1,1 +1,1 @@
-torchrun --standalone --nnodes=1 --nproc_per_node=4  run.py --num_epochs=20 --mode=train --baselines=rt1/rt1x,octo/octo-base --batch_size=16 --checkpoint_dir=checkpoints3 --v=-2
+torchrun --standalone --nnodes=1 --nproc_per_node=4  run.py --num_epochs=20 --mode=train --baselines=rt1/rt1x,octo/octo-base --batch_size=4 --checkpoint_dir=checkpoints3 --v=-2

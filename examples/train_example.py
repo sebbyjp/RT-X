@@ -190,8 +190,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
         )
 
-    steps_per_epoch = 5900
-    warmup_period = 500
+    steps_per_epoch = len(train_data_loader))
+    warmup_period = 1000
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps
     lr_min = 1e-5
@@ -213,7 +213,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.train_step = model.module.train_step
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.0001)
+    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.001)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
