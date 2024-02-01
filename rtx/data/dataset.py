@@ -8,10 +8,13 @@ import numpy as np
 import datasets
 from absl import logging
 from rtx.data.registry import DATASET_MIXES
+from torch.utils.data import IterableDataset
+import torch.distributed as dist
 
 
 
-class TorchRLDSDataset(torch.utils.data.IterableDataset):
+
+class TorchRLDSDataset(IterableDataset):
     """Thin wrapper around RLDS dataset for use with PyTorch dataloaders."""
 
     def __init__(
@@ -32,12 +35,25 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
         self._is_train = train
 
     def __iter__(self):
-        for sample in self._rlds_dataset.as_numpy_iterator():
-            yield {'observation': {"image_primary": sample['observation']['image_primary']},
+        worker_info = torch.utils.data.get_worker_info()
+        worker_id = worker_info.id
+        total_workers = worker_info.num_workers
+        if dist.is_available() and dist.is_initialized():
+            world_size = dist.get_world_size()
+            rank = dist.get_rank()
+        else:
+            world_size = 1
+            rank = 0
+        total_workers *= world_size
+        global_worker_id = worker_id * world_size + rank
+        for i, sample in enumerate(self._rlds_dataset.as_numpy_iterator()):
+            if i % total_workers == global_worker_id:
+                yield {'observation': {"image_primary": sample['observation']['image_primary']},
                                 #    "image_wrist": sample['observation']['image_wrist']},
                    'action': sample['action'],
                    'language_instruction': sample['task']['language_instruction'].decode()}
 
+         
     def __len__(self):
         lengths = np.array(
             [

@@ -173,14 +173,15 @@ def run(model: torch.nn.Module, action_tokenizer):
         batch_size=FLAGS.batch_size,
         num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
-        sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
+        # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
  
     eval_data_loader = DataLoader(
         eval_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=10,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
+        shuffle=True,
         # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
     )
 
