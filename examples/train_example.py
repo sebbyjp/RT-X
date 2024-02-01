@@ -10,6 +10,11 @@ import os
 import tensorflow as tf
 import pytorch_warmup as warmup
 import numpy as np
+from torch.nn.parallel import DistributedDataParallel as DDP
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+import torchmetrics
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -19,6 +24,53 @@ flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
+
+def is_dist_avail_and_initialized():
+    if not dist.is_available():
+        return False
+
+    if not dist.is_initialized():
+        return False
+
+    return True
+
+def save_on_master(*args, **kwargs):
+
+    if is_main_process():
+        torch.save(*args, **kwargs)
+
+def get_rank():
+
+    if not is_dist_avail_and_initialized():
+        return 0
+
+    return dist.get_rank()
+
+def is_main_process():
+
+    return get_rank() == 0
+
+def init_distributed():
+
+    # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
+    dist_url = "env://" # default
+
+    # only works with torch.distributed.launch // torch.run
+    rank = int(os.environ["RANK"])
+    world_size = int(os.environ['WORLD_SIZE'])
+    local_rank = int(os.environ['LOCAL_RANK'])
+    dist.init_process_group(
+            backend="nccl",
+            init_method=dist_url,
+            world_size=world_size,
+            rank=rank)
+
+    # this will make all .cuda() calls work properly
+    torch.cuda.set_device(local_rank)
+
+    # synchronizes all the threads to reach this point before moving on
+    dist.barrier()
+    
 
 def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[]):
         # evaluate
@@ -117,15 +169,17 @@ def run(model: torch.nn.Module, action_tokenizer):
     train_data_loader = DataLoader(
         train_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=4,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
+        sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
-
+ 
     eval_data_loader = DataLoader(
         eval_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=4,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
+        # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
     )
 
     steps_per_epoch = 5900
@@ -136,12 +190,18 @@ def run(model: torch.nn.Module, action_tokenizer):
     max_step = t0 + warmup_period
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    fp16_scaler = torch.cuda.amp.GradScaler(enabled=True)
+
     if torch.cuda.is_available() and torch.cuda.device_count()  > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = torch.nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
+        # Convert BatchNorm to SyncBatchNorm. 
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+
+        local_rank = int(os.environ['LOCAL_RANK'])
+        model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
         model.run = model.module.run
         model.train_step = model.module.train_step
-    model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.0001)
@@ -152,9 +212,11 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
+        if torch.cuda.device_count() > 1:
+            train_data_loader.sampler.set_epoch(epoch)
         print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            if step_num % 100 == 0:
+            if step_num % 100 == 0 and is_main_process():
                 eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
 
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
@@ -164,12 +226,16 @@ def run(model: torch.nn.Module, action_tokenizer):
                 ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device=device).reshape(-1,1).squeeze()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
-            out = model.train_step(video, instructions).reshape(-1, 256)
-            loss = criterion(out, ground_truth)
-            loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
-            writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
+            with torch.cuda.amp.autocast():
+                out = model.train_step(video, instructions).reshape(-1, 256)
+                loss = criterion(out, ground_truth)
+            # mixed precision training 
+            # backward + optimizer step
+            fp16_scaler.scale(loss).backward()
+            fp16_scaler.step(optimizer)
+            fp16_scaler.update()
+            if is_main_process():
+                writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
             del video
             del instructions
             del ground_truth
@@ -183,9 +249,11 @@ def run(model: torch.nn.Module, action_tokenizer):
                     lr_scheduler.step()
             if warmup_scheduler.last_step + 1 >= max_step:
                 break
-            writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
+            if is_main_process():
+                writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
         
 
         # save model
-        os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
-        torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+        if is_main_process():
+            os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
+            torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
