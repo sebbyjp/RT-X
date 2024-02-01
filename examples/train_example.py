@@ -235,16 +235,18 @@ def run(model: torch.nn.Module, action_tokenizer):
                 video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
                 instructions = sample['language_instruction']
                 ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device=device).reshape(-1,1).squeeze()
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
-            with torch.cuda.amp.autocast():
-                out = model.train_step(video, instructions).reshape(-1, 256)
-                loss = criterion(out, ground_truth)
+            # with torch.cuda.amp.autocast():
+            out = model.train_step(video, instructions).reshape(-1, 256)
+            loss = criterion(out, ground_truth)
+            loss.backward()
+            optimizer.step()
             # mixed precision training 
             # backward + optimizer step
-            fp16_scaler.scale(loss).backward()
-            fp16_scaler.step(optimizer)
-            fp16_scaler.update()
+            # fp16_scaler.scale(loss).backward()
+            # fp16_scaler.step(optimizer)
+            # fp16_scaler.update()
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
             del video
