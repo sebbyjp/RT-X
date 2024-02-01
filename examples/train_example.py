@@ -161,6 +161,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
 
 def run(model: torch.nn.Module, action_tokenizer):
+    init_distributed()
     writer = SummaryWriter()
     train_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=True))
     eval_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=False))
@@ -213,7 +214,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     for epoch in range(FLAGS.num_epochs):
         if torch.cuda.device_count() > 1:
             train_data_loader.sampler.set_epoch(epoch)
-        print(f'epoch {epoch}')
+        if is_main_process():
+            print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             if step_num % 100 == 0 and is_main_process():
                 eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
