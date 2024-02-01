@@ -162,7 +162,9 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
 def run(model: torch.nn.Module, action_tokenizer):
     init_distributed()
-    writer = SummaryWriter()
+    writer = None
+    if is_main_process():
+        writer = SummaryWriter()
     train_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=True))
     eval_ds = TorchRLDSDataset(get_oxe_dataset(FLAGS.dataset_name, train=False))
  
