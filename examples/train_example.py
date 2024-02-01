@@ -54,11 +54,15 @@ def is_main_process():
 
 def init_distributed():
     # only works with torch.distributed.launch // torch.run
+    if 'RANK' in os.environ and 'WORLD_SIZE' in os.environ:
+        rank = int(os.environ["RANK"])
+    else:
+        rank = 0
     world_size = int(os.environ['WORLD_SIZE'])
     local_rank = int(os.environ['LOCAL_RANK'])
     os.environ['MASTER_ADDR']= '127.0.0.1'
     os.environ['MASTER_PORT']= '29500'
-    dist.init_process_group(backend='nccl', world_size=world_size)
+    dist.init_process_group(backend='nccl', world_size=world_size, rank=rank)
 
     # this will make all .cuda() calls work properly
     torch.cuda.set_device(local_rank)
