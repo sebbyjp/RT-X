@@ -104,7 +104,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             batch_size = video.shape[0]
             n_frames = video.shape[1]
 
-            # Log image and action frames in batch first sample:
+            # Log imagea and action frames in batch first sample:
             for i in range(n_frames):
                 writer.add_image('image',video[0,i,:,:,:], step_num +  n_frames*eval_steps + i, dataformats='CHW')
                 writer.add_text('instruction', instructions[0], step_num +  n_frames*eval_steps + i)
@@ -190,7 +190,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
         )
 
-    steps_per_epoch = len(train_data_loader)
+    steps_per_epoch = 5900
     warmup_period = 500
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps
@@ -246,7 +246,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             fp16_scaler.step(optimizer)
             fp16_scaler.update()
             if is_main_process():
-                writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
+                writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
             del video
             del instructions
             del ground_truth
