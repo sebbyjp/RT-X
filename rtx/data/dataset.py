@@ -19,10 +19,10 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
         train=True,
     ):
         self._rlds_dataset = rlds_dataset
-        if not hasattr(self._rlds_dataset, "dataset_statistics"):
-            self._rlds_dataset.dataset_statistics = get_dataset_statistics(
-                self._rlds_dataset
-            )
+        # if not hasattr(self._rlds_dataset, "dataset_statistics"):
+        #     self._rlds_dataset.dataset_statistics = get_dataset_statistics(
+        #         self._rlds_dataset
+        #     )
         self._is_train = train
 
     def __iter__(self):
