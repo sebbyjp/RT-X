@@ -197,7 +197,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     fp16_scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     if torch.cuda.is_available() and torch.cuda.device_count()  > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        if is_main_process():
+            print(f'Using {torch.cuda.device_count()} GPUs')
         # Convert BatchNorm to SyncBatchNorm. 
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
@@ -215,8 +216,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
-        if torch.cuda.device_count() > 1:
-            train_data_loader.sampler.set_epoch(epoch)
+        # if torch.cuda.device_count() > 1:
+        #     train_data_loader.sampler.set_epoch(epoch)
         if is_main_process():
             print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
