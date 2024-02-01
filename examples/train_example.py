@@ -10,7 +10,7 @@ import os
 import tensorflow as tf
 import pytorch_warmup as warmup
 import numpy as np
-tf.config.set_visible_devices([], "GPU")
+# tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
 
@@ -117,14 +117,14 @@ def run(model: torch.nn.Module, action_tokenizer):
     train_data_loader = DataLoader(
         train_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=4,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
     )
 
     eval_data_loader = DataLoader(
         eval_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=4,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
     )
 
@@ -136,12 +136,12 @@ def run(model: torch.nn.Module, action_tokenizer):
     max_step = t0 + warmup_period
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    if torch.cuda.device_count() > 1:
+    if torch.cuda.is_available() and torch.cuda.device_count()  > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = torch.nn.DataParallel(model, device_ids=list(range(torch.cuda.device_count())))
         model.run = model.module.run
         model.train_step = model.module.train_step
-    model.to(device)
+    model = model.to(device)
 
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=0.0001)
