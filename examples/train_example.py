@@ -246,12 +246,12 @@ def run(model: torch.nn.Module, action_tokenizer):
             fp16_scaler.step(optimizer)
             fp16_scaler.update()
             if is_main_process():
-                writer.add_scalar('loss', loss.item(), step_num)
-            del loss
+                writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
             del video
             del instructions
             del ground_truth
             del out
+            del loss
             torch.cuda.empty_cache()
             step_num += 1
 
