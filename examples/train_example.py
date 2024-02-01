@@ -172,7 +172,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     if is_main_process():
         writer = SummaryWriter()
     train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True), train=True, rank=get_rank(), world_size=get_world_size())
-    eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False), train=False, rank=0, world_size=1)
+    eval_ds = None
+    if is_main_process():
+        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False), train=False, rank=0, world_size=1)
  
     train_data_loader = DataLoader(
         train_ds,
@@ -181,15 +183,16 @@ def run(model: torch.nn.Module, action_tokenizer):
         pin_memory=True,
         # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
- 
-    eval_data_loader = DataLoader(
-        eval_ds,
-        batch_size=2,
-        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
-        pin_memory=True,
-        # shuffle=True,
-        # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
-    )
+    eval_data_loader = None
+    if is_main_process():
+        eval_data_loader = DataLoader(
+            eval_ds,
+            batch_size=2,
+            num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+            pin_memory=True,
+            # shuffle=True,
+            # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
+        )
 
     steps_per_epoch = 5900
     warmup_period = 500
