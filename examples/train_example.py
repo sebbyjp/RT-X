@@ -175,7 +175,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     train_data_loader = DataLoader(
         train_ds,
         batch_size=FLAGS.batch_size,
-        num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+        num_workers=10,  # important to keep this to 0 so PyTorch does not mess with the parallelism
         pin_memory=True,
         # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
@@ -246,12 +246,12 @@ def run(model: torch.nn.Module, action_tokenizer):
             fp16_scaler.step(optimizer)
             fp16_scaler.update()
             if is_main_process():
-                writer.add_scalar('loss', loss.to('cpu').detach().numpy(), step_num)
+                writer.add_scalar('loss', loss.item(), step_num)
+            del loss
             del video
             del instructions
             del ground_truth
             del out
-            del loss
             torch.cuda.empty_cache()
             step_num += 1
 
