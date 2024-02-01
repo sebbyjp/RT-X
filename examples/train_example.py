@@ -53,23 +53,15 @@ def is_main_process():
     return get_rank() == 0
 
 def init_distributed():
-
-    # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
-    dist_url = "env://" # default
-
     # only works with torch.distributed.launch // torch.run
-    rank = int(os.environ["RANK"])
     world_size = int(os.environ['WORLD_SIZE'])
     local_rank = int(os.environ['LOCAL_RANK'])
-    dist.init_process_group(
-            backend="nccl",
-            init_method=dist_url,
-            world_size=world_size,
-            rank=rank)
+    os.environ['MASTER_ADDR']= '127.0.0.1'
+    os.environ['MASTER_PORT']= '29500'
+    dist.init_process_group(backend='nccl', world_size=world_size)
 
     # this will make all .cuda() calls work properly
     torch.cuda.set_device(local_rank)
-
     # synchronizes all the threads to reach this point before moving on
     dist.barrier()
     
