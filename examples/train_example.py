@@ -14,7 +14,6 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 import torch.multiprocessing as mp
 from torch.utils.data.distributed import DistributedSampler
-import torchmetrics
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
