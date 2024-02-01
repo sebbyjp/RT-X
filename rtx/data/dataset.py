@@ -146,9 +146,9 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
             ),
             num_parallel_calls=200,
         ),)
-    return (dataset.flatten().shuffle(buffer_size=100),dataset_statistics, None)
+    return (dataset.flatten().shuffle(buffer_size=100),[dataset_statistics], None)
 
-def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True) -> (DLataset, dict, Optional[dict]) :
+def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True) -> (DLataset, list[dict], Optional[dict]) :
     if name in DATASET_MIXES:
         return get_interleaved_oxe_dataset(name, train=train)
     else:
