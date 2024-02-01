@@ -29,19 +29,23 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
                    'language_instruction': sample['task']['language_instruction'].decode()}
 
     def __len__(self):
-        lengths = np.array(
-            [
-                stats["num_transitions"]
-                for stats in self._rlds_dataset.dataset_statistics
-            ]
-        )
-        if hasattr(self._rlds_dataset, "sample_weights"):
-            lengths *= np.array(self._rlds_dataset.sample_weights)
-        total_len = lengths.sum()
-        if self._is_train:
-            return int(0.95 * total_len)
+        if hasattr(self._rlds_dataset, "dataset_statistics"):
+            lengths = np.array(
+                [
+                    stats["num_transitions"]
+                    for stats in self._rlds_dataset.dataset_statistics
+                ]
+            )
+            if hasattr(self._rlds_dataset, "sample_weights"):
+                lengths *= np.array(self._rlds_dataset.sample_weights)
+            total_len = lengths.sum()
+            if self._is_train:
+                return int(0.95 * total_len)
+            else:
+                return int(0.05 * total_len)
         else:
-            return int(0.05 * total_len)
+            return len(self._rlds_dataset)
+
 
 
 
