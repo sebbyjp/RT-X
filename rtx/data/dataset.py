@@ -1,6 +1,6 @@
 from octo.data.dataset import make_interleaved_dataset, make_single_dataset
 from octo.data.oxe import make_oxe_dataset_kwargs_and_weights, make_oxe_dataset_kwargs
-from octo.data.utils.data_utils import NormalizationType
+from octo.data.utils.data_utils import NormalizationType, get_dataset_statistics
 from dlimp import DLataset
 import torch
 import numpy as np
@@ -19,6 +19,10 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
         train=True,
     ):
         self._rlds_dataset = rlds_dataset
+        if not hasattr(self._rlds_dataset, "dataset_statistics"):
+            self._rlds_dataset.dataset_statistics = get_dataset_statistics(
+                self._rlds_dataset
+            )
         self._is_train = train
 
     def __iter__(self):
@@ -29,22 +33,19 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
                    'language_instruction': sample['task']['language_instruction'].decode()}
 
     def __len__(self):
-        if hasattr(self._rlds_dataset, "dataset_statistics"):
-            lengths = np.array(
-                [
-                    stats["num_transitions"]
-                    for stats in self._rlds_dataset.dataset_statistics
-                ]
-            )
-            if hasattr(self._rlds_dataset, "sample_weights"):
-                lengths *= np.array(self._rlds_dataset.sample_weights)
-            total_len = lengths.sum()
-            if self._is_train:
-                return int(0.95 * total_len)
-            else:
-                return int(0.05 * total_len)
+        lengths = np.array(
+            [
+                stats["num_transitions"]
+                for stats in self._rlds_dataset.dataset_statistics
+            ]
+        )
+        if hasattr(self._rlds_dataset, "sample_weights"):
+            lengths *= np.array(self._rlds_dataset.sample_weights)
+        total_len = lengths.sum()
+        if self._is_train:
+            return int(0.95 * total_len)
         else:
-            return len(self._rlds_dataset)
+            return int(0.05 * total_len)
 
 
 
