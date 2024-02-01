@@ -9,11 +9,8 @@ from tensorboardX import SummaryWriter
 import os
 import tensorflow as tf
 import pytorch_warmup as warmup
-import numpy as np
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
-import torch.multiprocessing as mp
-from torch.utils.data.distributed import DistributedSampler
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -93,7 +90,6 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
             if (eval_steps == 10):
                 break
-            eval_steps += 1
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
@@ -108,7 +104,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             batch_size = video.shape[0]
             n_frames = video.shape[1]
 
-            # Log imagea and action frames in batch first sample:
+            # Log image and action frames in batch first sample:
             for i in range(n_frames):
                 writer.add_image('image',video[0,i,:,:,:], step_num +  n_frames*eval_steps + i, dataformats='CHW')
                 writer.add_text('instruction', instructions[0], step_num +  n_frames*eval_steps + i)
@@ -157,7 +153,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                 baselines[baseline]['loss'] += criterion(batch_actions.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).to('cpu').detach()
-            
+            eval_steps += 1
 
     writer.add_scalar('eval_loss', eval_loss / eval_steps, step_num)
     writer.add_scalar('single_eval_loss', single_eval_loss / eval_steps, step_num)
@@ -194,7 +190,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
         )
 
-    steps_per_epoch = 5900
+    steps_per_epoch = len(train_data_loader)
     warmup_period = 500
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps
@@ -230,8 +226,9 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            if step_num % 100 == 0 and is_main_process():
-                eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
+            if step_num % 100 == 0:
+                if is_main_process():
+                    eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
                 dist.barrier()
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             with torch.no_grad():
