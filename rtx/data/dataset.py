@@ -23,6 +23,7 @@ class TorchRLDSDataset(torch.utils.data.IterableDataset):
     ):
         self._rlds_dataset = rlds_dataset
         self.dataset_statistics = dataset_statistics
+        print('\n\n\n stats: ', self.dataset_statistics, '\n\n\n')
         self.sample_weights = sample_weights
         # if not hasattr(self._rlds_dataset, "dataset_statistics"):
         #     self._rlds_dataset.dataset_statistics = get_dataset_statistics(
