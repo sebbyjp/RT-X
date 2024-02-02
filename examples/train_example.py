@@ -17,6 +17,8 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
+flags.DEFINE_float("lr", 3e-4, "Learning Rate.")
+flags.DEFINE_float("weight_decay", 0.1, "Weight Decay.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
@@ -88,7 +90,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            if (eval_steps == 10):
+            if (eval_steps == 100):
                 break
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
@@ -123,6 +125,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 writer.add_scalar('pitch_pred', action_tokens[0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('yaw_pred', action_tokens[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', action_tokens[0,i,3], step_num +  n_frames*eval_steps + i)
+                writer.flush()
 
 
                 
@@ -149,6 +152,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                             writer.add_scalar('pitch_' + baseline.replace('/','_').replace('-','_'),out[5], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('yaw_' + baseline.replace('/','_').replace('-','_'),out[6], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_' + baseline.replace('/','_').replace('-','_'),out[3], step_num +  n_frames*eval_steps + j)
+                            writer.flush()
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
@@ -160,7 +164,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
     for baseline in FLAGS.baselines:
         writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_loss", baselines[baseline]['loss'] / eval_steps, step_num)
-
+    writer.flush()
 
 def run(model: torch.nn.Module, action_tokenizer):
     init_distributed()
@@ -212,7 +216,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.train_step = model.module.train_step
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=3e-4, weight_decay=0.001)
+    optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
@@ -264,8 +268,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             if is_main_process():
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
         
-
-        # save model
-        if is_main_process():
-            os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
-            torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+            if (step_num + 1) % 1000 == 0:
+                # save model
+                if is_main_process():
+                    os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
+                    torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
