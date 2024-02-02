@@ -125,7 +125,6 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 writer.add_scalar('pitch_pred', action_tokens[0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('yaw_pred', action_tokens[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', action_tokens[0,i,3], step_num +  n_frames*eval_steps + i)
-                writer.flush()
 
 
                 
@@ -152,7 +151,6 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                             writer.add_scalar('pitch_' + baseline.replace('/','_').replace('-','_'),out[5], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('yaw_' + baseline.replace('/','_').replace('-','_'),out[6], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_' + baseline.replace('/','_').replace('-','_'),out[3], step_num +  n_frames*eval_steps + j)
-                            writer.flush()
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
@@ -229,7 +227,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            if step_num % 100 == 0:
+            if step_num % 1000 == 0:
                 if is_main_process():
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
                 dist.barrier()
