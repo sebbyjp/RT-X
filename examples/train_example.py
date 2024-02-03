@@ -232,10 +232,9 @@ def run(model: torch.nn.Module, action_tokenizer):
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
                 dist.barrier()
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
-            with torch.no_grad():
-                video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
-                instructions = sample['language_instruction']
-                ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device=device).reshape(-1,1).squeeze()
+            video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
+            instructions = sample['language_instruction']
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device=device).reshape(-1,1).squeeze()
             torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
