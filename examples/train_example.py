@@ -9,7 +9,6 @@ from tensorboardX import SummaryWriter
 import os
 import tensorflow as tf
 import pytorch_warmup as warmup
-import torchmetrics
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 tf.config.set_visible_devices([], "GPU")
@@ -87,9 +86,11 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
     with torch.no_grad():
         eval_loss = 0
         single_eval_loss = 0
+        eval_acc = 0
+        single_eval_acc = 0
         baselines = {}
         for baseline in baseline_keys:
-            baselines[baseline] = {'loss': 0, 'model': InferenceServer(baseline.split('/')[0], baseline.split('/')[1])}
+            baselines[baseline] = {'loss': 0, 'acc': 0, 'model': InferenceServer(baseline.split('/')[0], baseline.split('/')[1])}
 
 
         eval_steps = 0.
@@ -102,11 +103,12 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             out = model.run(video, instructions)
 
             eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).detach().to('cpu')
+            eval_acc += (torch.max(out,-1)[1] == ground_truth).float().mean().detach().to('cpu')
 
             action_tokens = torch.max(out[:,:,:,:],-1)[1]
             single_one_hot = nn.functional.one_hot(action_tokens[:,-1,:], 256).to(device).float()
             single_eval_loss += criterion(single_one_hot.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).detach().to('cpu')
-
+            single_eval_acc += (torch.max(single_one_hot,-1)[1] == ground_truth[:,-1,:]).float().mean().detach().to('cpu')
             batch_size = video.shape[0]
             n_frames = video.shape[1]
 
@@ -129,6 +131,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 writer.add_scalar('pitch_pred', action_tokens[0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('yaw_pred', action_tokens[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', action_tokens[0,i,3], step_num +  n_frames*eval_steps + i)
+                exit()
 
 
                 
@@ -159,13 +162,17 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                 baselines[baseline]['loss'] += criterion(batch_actions.reshape(-1, 256), ground_truth[:,-1,:].reshape(-1,1).squeeze()).to('cpu').detach()
+                baselines[baseline]['acc'] += (torch.max(batch_actions,-1)[1] == ground_truth[:,-1,:]).float().mean().to('cpu').detach()
             eval_steps += 1
 
     writer.add_scalar('eval_loss', eval_loss / eval_steps, step_num)
     writer.add_scalar('single_eval_loss', single_eval_loss / eval_steps, step_num)
+    writer.add_scalar('eval_acc', eval_acc / eval_steps, step_num)
+    writer.add_scalar('single_eval_acc', single_eval_acc / eval_steps, step_num)
 
     for baseline in FLAGS.baselines:
         writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_loss", baselines[baseline]['loss'] / eval_steps, step_num)
+        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_acc", baselines[baseline]['acc'] / eval_steps, step_num)
     writer.flush()
 
 def run(model: torch.nn.Module, action_tokenizer):

@@ -22,6 +22,19 @@ class RTX1ActionTokenizer:
         action = action * (self.vocab_size - 1)
         return action
 
+    def detokenize(self, action: torch.long, lower_bound: float, upper_bound: float) -> torch.float:
+        action = action / (self.vocab_size - 1)
+        action = action * (upper_bound - lower_bound) + lower_bound
+        return action
+    
+    def detokenize_vec(self, action_tokens: torch.long, device='cpu') -> torch.Tensor:
+        action = torch.float(7, dtype=torch.long, device=device)
+        action[6] = self.detokenize(action_tokens[3], self.bounds['gripper_closedness_action'][0], self.bounds['gripper_closedness_action'][1])
+        action[3:6] = self.detokenize(action_tokens[4:7], self.bounds['rotation_delta'][0], self.bounds['rotation_delta'][1])
+        # tokens[7] = normalized_action['terminate_episode'][-1]
+        action[0:3] = self.detokenize(action_tokens[8:],  self.bounds['world_vector'][0], self.bounds['world_vector'][1])
+        return action
+
 
 
     def tokenize_dict(self, action: dict, device='cpu') -> torch.Tensor:

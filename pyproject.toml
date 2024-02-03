@@ -3,7 +3,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "rtx-torch"
+name = "rtx"
 version = "0.1.0"
 description = "rtx - Pytorch"
 license = "MIT"
@@ -29,7 +29,7 @@ packages = [
 [tool.poetry.dependencies]
 python = "^3.9,<3.12"
 torch = "*"
-torchvision = "^0.16.2"
+torchvision = "^0.16.1"
 einops = "0.7.0"
 efficientnet_pytorch = "0.7.1"
 zetascale = "0.9.9"

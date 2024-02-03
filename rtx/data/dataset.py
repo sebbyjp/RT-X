@@ -10,8 +10,57 @@ from absl import logging
 from rtx.data.registry import DATASET_MIXES
 from torch.utils.data import IterableDataset, get_worker_info
 import torch.distributed as dist
+from PIL import Image
 
+import h5py
+from torch.utils.data import Dataset
+from torchvision import transforms
 
+class HDF5ImageDataset(Dataset):
+    def __init__(self, hdf5_file, transform=None):
+        """
+        Args:
+            hdf5_file (string): Path to the hdf5 file with annotations.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.hdf5_file = hdf5_file
+        self.transform = transform
+
+        # Open the hdf5 file and get the size of the dataset
+        with h5py.File(self.hdf5_file, 'r') as file:
+            self.length = len(file['images'])
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        with h5py.File(self.hdf5_file, 'r') as file:
+            image = file['observation']['image_head'][idx]
+            # Assuming the label is also stored in the same HDF5 file
+            label = file['labels'][idx]
+
+        # Convert image to numpy array if not already
+        image = np.array(image)
+
+        # Convert to PIL Image for compatibility with torchvision transforms
+        image = Image.fromarray(image.astype('uint8'), 'RGB')
+
+        if self.transform:
+            image = self.transform(image)
+
+        return image, label
+
+# Define your transformations / augmentations
+transform = transforms.Compose([
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(10),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+])
+
+# Create the dataset
+hdf5_dataset = HDF5ImageDataset(hdf5_file='your_dataset.hdf5', transform=transform)
 
 
 class TorchRLDSDataset(IterableDataset):
