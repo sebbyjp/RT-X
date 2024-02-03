@@ -9,6 +9,7 @@ from tensorboardX import SummaryWriter
 import os
 import tensorflow as tf
 import pytorch_warmup as warmup
+import torchmetrics
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 tf.config.set_visible_devices([], "GPU")
@@ -18,6 +19,7 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_float("lr", 3e-4, "Learning Rate.")
+flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
 flags.DEFINE_float("weight_decay", 0.1, "Weight Decay.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
@@ -55,6 +57,8 @@ def is_main_process():
     return get_rank() == 0
 
 def init_distributed():
+    if not torch.cuda.is_available() or torch.cuda.device_count() <= 1:
+        return
 
     # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
     dist_url = "env://" # default
@@ -196,7 +200,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     warmup_period = 1000
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps // 15
-    lr_min = 1e-5
+    lr_min = FLAGS.min_lr
     max_step = t0*3 + warmup_period
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -230,7 +234,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             if step_num % 1000 == 0:
                 if is_main_process():
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
-                dist.barrier()
+                if torch.cuda.device_count() > 1:
+                    dist.barrier()
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
