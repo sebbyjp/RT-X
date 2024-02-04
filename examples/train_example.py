@@ -189,7 +189,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                             writer.add_scalar('roll_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][0], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('pitch_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][1], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('yaw_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][2], step_num +  n_frames*eval_steps + j)
-                            writer.add_scalar('grasp_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['gripper_closedness_action'][0], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('grasp_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['gripper_closedness_action'], step_num +  n_frames*eval_steps + j)
 
                         # print(f' \n\n   {baseline} tokenized',out)
            
