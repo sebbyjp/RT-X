@@ -269,6 +269,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
         optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer.consolidate_state_dict(to=get_rank())
     else:
         optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
