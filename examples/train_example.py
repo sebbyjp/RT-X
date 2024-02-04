@@ -328,18 +328,18 @@ def run(model: torch.nn.Module, action_tokenizer):
                          torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
             step_num += 1
 
-def train_model(config):
-    model = MyModel(...)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+# def train_model(config):
+#     model = MyModel(...)
+#     criterion = nn.CrossEntropyLoss()
+#     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
     
-    for epoch in range(10):  # Number of epochs
-        # Training loop here
-        loss = criterion(output, target)
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+#     for epoch in range(10):  # Number of epochs
+#         # Training loop here
+#         loss = criterion(output, target)
+#         optimizer.zero_grad()
+#         loss.backward()
+#         optimizer.step()
         
-        # Send the current training result back to Ray Tune
-        tune.report(loss=loss.item())
+#         # Send the current training result back to Ray Tune
+#         tune.report(loss=loss.item())
 
