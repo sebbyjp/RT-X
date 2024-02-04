@@ -123,7 +123,7 @@ class TorchRLDSDataset(IterableDataset):
 
 
 
-def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True, data_augmentation=True) -> DLataset:
+def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True, data_augmentation=True, shuffle_buffer_size=500000) -> DLataset:
 
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
@@ -136,7 +136,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
         dataset_kwargs_list,
         sample_weights,
         train=train,
-        shuffle_buffer_size=500000,  # change to 500k for training, large shuffle buffers are important, but adjust to your RAM
+        shuffle_buffer_size=shuffle_buffer_size,  # change to 500k for training, large shuffle buffers are important, but adjust to your RAM
         batch_size=None,  # batching will be handles in PyTorch Dataloader object
         balance_weights=True,
         traj_transform_kwargs=dict(
@@ -172,7 +172,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
-data_augmentation=True)-> DLataset:
+data_augmentation=True, shuffle_buffer_size=1000)-> DLataset:
     dataset_kwargs = make_oxe_dataset_kwargs(
     # see octo/data/oxe/oxe_dataset_configs.py for available datasets
     # (this is a very small one for faster loading)
@@ -214,7 +214,7 @@ data_augmentation=True)-> DLataset:
             ),
             num_parallel_calls=200,
         ),)
-    return (dataset.flatten().shuffle(buffer_size=10000),[dataset_statistics], None)
+    return (dataset.flatten().shuffle(buffer_size=shuffle_buffer_size),[dataset_statistics], None)
 
 def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True, data_augmentation=True) -> (DLataset, list[dict], Optional[dict]) :
     if name in DATASET_MIXES:

@@ -18,6 +18,8 @@ FLAGS = flags.FLAGS
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_integer("num_warmup_steps", 1000, "Number of warmup steps.")
+flags.DEFINE_integer("shuffle_buffer_size", 1000, "Shuffle buffer size.")
+flags.DEFINE_integer("eval_batch_size", 2, "Eval Batch size.")
 flags.DEFINE_float("lr", 1e-3, "Learning Rate.")
 flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
 flags.DEFINE_float("weight_decay", 0.01, "Weight Decay.")
@@ -26,6 +28,7 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
+
 
 def is_dist_avail_and_initialized():
     if not dist.is_available():
@@ -182,10 +185,10 @@ def run(model: torch.nn.Module, action_tokenizer):
     writer = None
     if is_main_process():
         writer = SummaryWriter()
-    train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True,  data_augmentation=FLAGS.data_augmentation), train=True, rank=get_rank(), world_size=get_world_size())
+    train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True,  data_augmentation=FLAGS.data_augmentation, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=True, rank=get_rank(), world_size=get_world_size())
     eval_ds = None
     if is_main_process():
-        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False,  data_augmentation=False), train=False, rank=0, world_size=1)
+        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False,  data_augmentation=False, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=False, rank=0, world_size=1)
  
     train_data_loader = DataLoader(
         train_ds,
@@ -198,7 +201,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     if is_main_process():
         eval_data_loader = DataLoader(
             eval_ds,
-            batch_size=2,
+            batch_size=FLAGS.eval_batch_size,
             num_workers=0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
             pin_memory=True,
             # shuffle=True,
