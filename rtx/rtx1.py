@@ -555,7 +555,7 @@ class TransformerAttention(nn.Module):
     def __init__(
         self,
         dim,
-        causal=False,
+        causal=True,
         dim_head=64,
         dim_context=None,
         heads=8,
@@ -752,7 +752,7 @@ class RT1Config:
         token_learner_ff_mult=2,
         token_learner_num_layers=2,
         token_learner_num_output_tokens=8,
-        cond_drop_prob=0.2,
+        cond_drop_prob=0.1,
         use_attn_conditioner=False,
     ):
         """Configuration class to store the configuration of a `RT1`.
