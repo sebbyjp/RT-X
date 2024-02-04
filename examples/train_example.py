@@ -278,7 +278,6 @@ def run(model: torch.nn.Module, action_tokenizer):
             # del out
             # del loss
             # torch.cuda.empty_cache()
-            step_num += 1
 
             with warmup_scheduler.dampening():
                 if warmup_scheduler.last_step + 1 >= warmup_period:
@@ -287,7 +286,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                 break
             if is_main_process():
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
-        
+            
             if (step_num + 1) % 1000 == 0:
                 # save model
                 if is_main_process():
@@ -296,3 +295,4 @@ def run(model: torch.nn.Module, action_tokenizer):
                         torch.save(model.module.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
                     else:
                          torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+            step_num += 1
