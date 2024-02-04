@@ -103,28 +103,26 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 break
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
-            ground_truth = rearrange(action_tokenizer.tokenize_xyzrpyg(sample['action'], device), 'b f a -> (b f a)')
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
 
-            out = model.run(video, instructions, conditioning_scale)
-            out_preds = torch.max(out,-1)[1]
+            outs = model.run(video, instructions, conditioning_scale)
+            out_preds = torch.max(outs,-1)[1]
             
 
-            eval_loss += criterion(rearrange(out, 'b f a bins -> (b f a) bins'), ground_truth).detach().to('cpu')
-            eval_acc += (rearrange(out_preds, 'b f a -> (b f a)') == ground_truth).float().mean().detach().to('cpu')
+            eval_loss += criterion(rearrange(outs, 'b f a bins -> (b f a) bins'), rearrange(ground_truth, 'b f a -> (b f a)')).detach().to('cpu')
+            eval_acc += (out_preds == ground_truth).float().mean().detach().to('cpu')
 
 
-            future_logits = nn.functional.one_hot(out_preds[:,-1,:], 256).to(device).float()
-            future_gts = rearrange(ground_truth, '(b f a) -> b f a')[:,-1,:]
+            future_out_one_hot = nn.functional.one_hot(out_preds[:,-1,:], 256).to(device).float()
+            future_gt = ground_truth[:,-1,:]
 
-            future_eval_loss += criterion(rearrange(future_logits, 'b a bins -> (b a) bins'), rearrange(future_gts, 'b a -> (b a)')).detach().to('cpu')
-            future_preds = torch.max(rearrange(future_logits, 'b a bins -> (b a) bins'),-1)[1]
-            future_eval_acc += (future_preds == rearrange(future_gts, 'b a -> (b a)')).float().mean().detach().to('cpu')
+            future_eval_loss += criterion(rearrange(future_out_one_hot, 'b a bins -> (b a) bins'), rearrange(future_gt, 'b a -> (b a)')).detach().to('cpu')
+            future_eval_acc += (out_preds[:,-1,:] == future_gt).float().mean().detach().to('cpu')
 
             batch_size = video.shape[0]
             n_frames = video.shape[1]
 
 
-            ground_truth = rearrange(ground_truth, '(b f a) -> b f a')
             # Log imagea and action frames in batch first sample:
             for i in range(n_frames):
                 writer.add_image('image',video[0,i,:,:,:], step_num +  n_frames*eval_steps + i, dataformats='CHW')
@@ -173,8 +171,8 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
-                baselines[baseline]['loss'] += criterion(batch_actions[0,:,:], ground_truth[0,-1,:]).to('cpu').detach()
-                baselines[baseline]['acc'] += (torch.max(batch_actions[0,:,:],-1)[1] == ground_truth[0,-1,:]).float().mean().to('cpu').detach()
+                baselines[baseline]['loss'] += criterion(batch_actions[0,:,:], future_gt[0,:]).to('cpu').detach()
+                baselines[baseline]['acc'] += (torch.max(batch_actions[0,:,:],-1)[1] == future_gt[0,:]).float().mean().to('cpu').detach()
             eval_steps += 1
 
     writer.add_scalar('eval_loss', eval_loss / eval_steps, step_num)
@@ -183,8 +181,8 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
     writer.add_scalar('future_eval_acc', future_eval_acc / eval_steps, step_num)
 
     for baseline in FLAGS.baselines:
-        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_loss", baselines[baseline]['loss'] / eval_steps, step_num)
-        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_single_eval_acc", baselines[baseline]['acc'] / eval_steps, step_num)
+        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_future_loss", baselines[baseline]['loss'] / eval_steps, step_num)
+        writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_future_acc", baselines[baseline]['acc'] / eval_steps, step_num)
     writer.flush()
 
 def run(model: torch.nn.Module, action_tokenizer):
@@ -265,20 +263,20 @@ def run(model: torch.nn.Module, action_tokenizer):
 
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
-            ground_truth = rearrange(action_tokenizer.tokenize_xyzrpyg(sample['action'], device), 'b f a -> (b f a)')
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            out = model.train_step(video, instructions)
-            out_preds = torch.max(out,-1)[1]
+            outs = model.train_step(video, instructions)
+            out_preds = torch.max(outs,-1)[1]
             
 
-            loss = criterion(rearrange(out, 'b f a bins -> (b f a) bins'), ground_truth)
+            loss = criterion(rearrange(outs, 'b f a bins -> (b f a) bins'), rearrange(ground_truth, 'b f a -> (b f a)' ))
             loss.backward()
             optimizer.step()
-            acc = (rearrange(out_preds, 'b f a -> (b f a)') == ground_truth).float().mean().detach().to('cpu')
+            acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
             # mixed precision training 
             # backward + optimizer step
             # fp16_scaler.scale(loss).backward()
