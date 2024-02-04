@@ -14,6 +14,7 @@ import torch.distributed as dist
 from torch.distributed.optim import ZeroRedundancyOptimizer
 from einops import  rearrange
 from rtx.action_tokenization import RTX1ActionTokenizer
+from torch_lr_finder import LRFinder
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -193,7 +194,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                             writer.add_scalar('pitch_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][1], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('yaw_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][2], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['gripper_closedness_action'][0], step_num +  n_frames*eval_steps + j)
-                            
+
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
@@ -225,7 +226,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     eval_ds = None
     if is_main_process():
         eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False,  data_augmentation=False, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=False, rank=0, world_size=1)
- 
+    
     train_data_loader = DataLoader(
         train_ds,
         batch_size=FLAGS.batch_size,
@@ -276,6 +277,11 @@ def run(model: torch.nn.Module, action_tokenizer):
     warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
     step_num = 0
+
+    lr_finder = LRFinder(model, optimizer, criterion, device=device)
+    lr_finder.range_test(train_data_loader, start_lr=1e-7, end_lr=10, num_iter=100)
+    lr_finder.plot() # to inspect the loss-learning rate graph
+    lr_finder.reset() # to reset the model and optimizer to their initial state
     for epoch in range(FLAGS.num_epochs):
         # if torch.cuda.device_count() > 1:
         #     train_data_loader.sampler.set_epoch(epoch)
