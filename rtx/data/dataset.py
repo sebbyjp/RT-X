@@ -161,7 +161,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                         "random_hue",
                     ],
                 ),
-            } if data_augmentation else None ,
+            } if data_augmentation else {} ,
             resize_size=dict(
                 primary=(224, 224),
             ),
@@ -208,7 +208,7 @@ data_augmentation=True)-> DLataset:
                         "random_hue",
                     ],
                 ),
-            } if data_augmentation else None,
+            } if data_augmentation else {}},
             resize_size=dict(
                 primary=(224, 224),
             ),
