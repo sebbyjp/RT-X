@@ -232,7 +232,7 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     criterion = nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
-        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr)
+        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
         optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
@@ -256,7 +256,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device=device).reshape(-1,1).squeeze()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
             out = model.train_step(video, instructions).reshape(-1, 256)
