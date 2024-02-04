@@ -267,15 +267,15 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.train_step = model.module.train_step
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
-    if is_dist_avail_and_initialized():
-        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
-    else:
-        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
-    optimizer.zero_grad()
+    # if is_dist_avail_and_initialized():
+    #     optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+    # else:
+    #     optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+    # optimizer.zero_grad()
     # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
     # warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
-
+    optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     step_num = 0
 
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
