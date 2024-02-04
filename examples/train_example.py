@@ -13,6 +13,7 @@ from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 from torch.distributed.optim import ZeroRedundancyOptimizer
 from einops import  rearrange
+from rtx.action_tokenization import RTX1ActionTokenizer
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -85,7 +86,7 @@ def init_distributed():
     dist.barrier()
     
 
-def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[], conditioning_scale=1.0):
+def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[], conditioning_scale=1.0):
         # evaluate
     print('evaluating')
     model.eval()
@@ -185,7 +186,14 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                             writer.add_scalar('yaw_' + baseline.replace('/','_').replace('-','_'),out[6], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_' + baseline.replace('/','_').replace('-','_'),out[3], step_num +  n_frames*eval_steps + j)
 
-                            writer.add_scalar('x_raw_' + baseline.replace('/','_').replace('-','_'),out_raw[8], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('x_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['world_vector'][0], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('y_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['world_vector'][1], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('z_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['world_vector'][2], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('roll_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][0], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('pitch_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][1], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('yaw_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][2], step_num +  n_frames*eval_steps + j)
+                            writer.add_scalar('grasp_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['gripper_closedness_action'][0], step_num +  n_frames*eval_steps + j)
+                            
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
