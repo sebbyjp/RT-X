@@ -149,7 +149,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             video = torch.permute(video, (0,1,3,4,2))
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
-                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32, device=device)
+                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.long, device=device)
                 for i in range(batch_size):
                     for j in range(n_frames):
                         out = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
@@ -197,7 +197,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True,  data_augmentation=FLAGS.data_augmentation, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=True, rank=get_rank(), world_size=get_world_size())
     eval_ds = None
     if is_main_process():
-        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False,  data_augmentation=FLAGS.data_augmentation, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=False, rank=0, world_size=1)
+        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False,  data_augmentation=False, shuffle_buffer_size=FLAGS.shuffle_buffer_size), train=False, rank=0, world_size=1)
  
     train_data_loader = DataLoader(
         train_ds,
@@ -238,7 +238,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.run = model.module.run
         model.train_step = model.module.train_step
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
+    criterion = nn.CrossEntropyLoss(label_smoothing=FLAGS.label_smoothing))
     if is_dist_avail_and_initialized():
         optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
