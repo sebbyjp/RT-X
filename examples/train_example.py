@@ -17,6 +17,7 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
+flags.DEFINE_integer("num_warmup_steps", 1000, "Number of warmup steps.")
 flags.DEFINE_float("lr", 1e-3, "Learning Rate.")
 flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
 flags.DEFINE_float("weight_decay", 0.01, "Weight Decay.")
@@ -25,6 +26,7 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
+
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False
@@ -204,7 +206,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         )
 
     steps_per_epoch = len(train_data_loader)
-    warmup_period = 1000
+    warmup_period = FLAGS.num_warmup_steps
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = num_steps // 15
     lr_min = FLAGS.min_lr
@@ -227,9 +229,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
-    warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+    # warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
@@ -240,7 +242,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             if step_num % 1000 == 0:
                 if is_main_process():
-                    eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines)
+                    eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines, conditioning_scale)
                 if torch.cuda.device_count() > 1:
                     dist.barrier()
             # batch, frames, height, width, channels -> batch, frames, channel, height, width
@@ -252,6 +254,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # with torch.cuda.amp.autocast():
             out = model.train_step(video, instructions).reshape(-1, 256)
             loss = criterion(out, ground_truth)
+            acc = (torch.max(out,-1)[1] == ground_truth).float().mean().detach().to('cpu')
             loss.backward()
             optimizer.step()
             # mixed precision training 
@@ -261,6 +264,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # fp16_scaler.update()
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
+                writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()), step_num)
             del video
             del instructions
             del ground_truth
@@ -269,11 +273,11 @@ def run(model: torch.nn.Module, action_tokenizer):
             torch.cuda.empty_cache()
             step_num += 1
 
-            with warmup_scheduler.dampening():
-                if warmup_scheduler.last_step + 1 >= warmup_period:
-                    lr_scheduler.step()
-            if warmup_scheduler.last_step + 1 >= max_step:
-                break
+            # with warmup_scheduler.dampening():
+            #     if warmup_scheduler.last_step + 1 >= warmup_period:
+            #         lr_scheduler.step()
+            # if warmup_scheduler.last_step + 1 >= max_step:
+            #     break
             if is_main_process():
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
         
