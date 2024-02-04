@@ -147,18 +147,14 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                 writer.add_scalar('yaw_pred', out_preds[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', out_preds[0,i,3], step_num +  n_frames*eval_steps + i)
 
-                writer.add_scalar('x_gt_raw', sample['action'][0,i,8], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('y_gt_raw', sample['action'][0,i,9], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('z_gt_raw', sample['action'][0,i,10], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('roll_gt_raw', sample['action'][0,i,4], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('pitch_gt_raw', sample['action'][0,i,5], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('yaw_gt_raw', sample['action'][0,i,6], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('grasp_gt_raw', sample['action'][0,i,3], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('x_gt_raw', sample['action'][0,i,0], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('y_gt_raw', sample['action'][0,i,1], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('z_gt_raw', sample['action'][0,i,2], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('roll_gt_raw', sample['action'][0,i,3], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('pitch_gt_raw', sample['action'][0,i,4], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('yaw_gt_raw', sample['action'][0,i,5], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('grasp_gt_raw', sample['action'][0,i,6], step_num +  n_frames*eval_steps + i)
 
-                writer.add_scalar('x_pred_raw', out_preds[0,i,8], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('y_pred_raw', out_preds[0,i,9], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('z_pred_raw', out_preds[0,i,10], step_num +  n_frames*eval_steps + i)
-                writer.add_scalar('grasp_pred_raw', out_preds[0,i,3], step_num +  n_frames*eval_steps + i)
 
 
 
