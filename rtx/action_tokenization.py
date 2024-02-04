@@ -3,7 +3,7 @@ import torch
 RTX1_ACTION_BOUNDS =           {
                 'base_displacement_vector': [-1.0, 1.0],
                 'base_displacement_vertical_rotation': [-3.14159, 3.14159],
-                'gripper_closedness_action': [-1.0, 1.0],
+                'gripper_closedness_action': [0, 1.0],
                 'rotation_delta': [-1.5708, 1.5708],
                 'terminate_episode': [0.0, 1.0],
                 'world_vector': [-1.0, 1.0]
@@ -16,7 +16,7 @@ class RTX1ActionTokenizer:
         self.bounds = bounds
         self.vocab_size = vocab_size
     
-    def tokenize(self, action: torch.float, lower_bound: float, upper_bound: float) -> torch.int32:
+    def tokenize(self, action: torch.float, lower_bound: float, upper_bound: float) -> torch.long:
         action = torch.clip(action, lower_bound, upper_bound)
         action = (action - lower_bound) / (upper_bound - lower_bound)
         action = action * (self.vocab_size - 1)

@@ -236,9 +236,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     else:
         optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
-    warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+    # warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
@@ -279,11 +279,11 @@ def run(model: torch.nn.Module, action_tokenizer):
             # del loss
             # torch.cuda.empty_cache()
 
-            with warmup_scheduler.dampening():
-                if warmup_scheduler.last_step + 1 >= warmup_period:
-                    lr_scheduler.step()
-            if warmup_scheduler.last_step + 1 >= max_step:
-                break
+            # with warmup_scheduler.dampening():
+            #     if warmup_scheduler.last_step + 1 >= warmup_period:
+            #         lr_scheduler.step()
+            # if warmup_scheduler.last_step + 1 >= max_step:
+            #     break
             if is_main_process():
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
             
