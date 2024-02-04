@@ -31,6 +31,7 @@ flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
 flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
+flags.DEFINE_string("loss", "mse", "Loss function.")
 
 
 def is_dist_avail_and_initialized():
@@ -256,7 +257,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.run = model.module.run
         model.train_step = model.module.train_step
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=FLAGS.label_smoothing)
+    criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
         optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
