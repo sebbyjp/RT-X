@@ -30,6 +30,7 @@ flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
+flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
 
 
 def is_dist_avail_and_initialized():
@@ -149,7 +150,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             video = torch.permute(video, (0,1,3,4,2))
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
-                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.long, device=device)
+                batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32, device=device)
                 for i in range(batch_size):
                     for j in range(n_frames):
                         out = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
@@ -238,15 +239,15 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.run = model.module.run
         model.train_step = model.module.train_step
 
-    criterion = nn.CrossEntropyLoss(label_smoothing=FLAGS.label_smoothing))
+    criterion = nn.CrossEntropyLoss(label_smoothing=FLAGS.label_smoothing)
     if is_dist_avail_and_initialized():
         optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
         optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
-    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
+    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
-    # warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+    warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
     step_num = 0
     for epoch in range(FLAGS.num_epochs):
@@ -292,11 +293,11 @@ def run(model: torch.nn.Module, action_tokenizer):
             # del loss
             # torch.cuda.empty_cache()
 
-            # with warmup_scheduler.dampening():
-            #     if warmup_scheduler.last_step + 1 >= warmup_period:
-            #         lr_scheduler.step()
-            # if warmup_scheduler.last_step + 1 >= max_step:
-            #     break
+            with warmup_scheduler.dampening():
+                if warmup_scheduler.last_step + 1 >= warmup_period:
+                    lr_scheduler.step()
+            if warmup_scheduler.last_step + 1 >= max_step:
+                break
             if is_main_process():
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'], step_num)
             
