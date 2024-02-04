@@ -11,6 +11,7 @@ import tensorflow as tf
 import pytorch_warmup as warmup
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
+from torch.distributed.optim import ZeroRedundancyOptimizer
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -97,7 +98,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            if (eval_steps == 100):
+            if (eval_steps == 36):
                 break
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
@@ -224,13 +225,16 @@ def run(model: torch.nn.Module, action_tokenizer):
         # Convert BatchNorm to SyncBatchNorm. 
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
-        local_rank = int(os.environ['LOCAL_RANK'])
-        model = nn.parallel.DistributedDataParallel(model, device_ids=[local_rank])
+        model = DDP(model, device_ids=[get_rank()], output_device=get_rank(), find_unused_parameters=True)
+
         model.run = model.module.run
         model.train_step = model.module.train_step
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.AdamW(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+    if is_dist_avail_and_initialized():
+        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr)
+    else:
+        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
@@ -243,7 +247,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'epoch {epoch}')
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            if step_num % 1000 == 0:
+            if step_num % 500 == 0:
                 if is_main_process():
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines, conditioning_scale)
                 if torch.cuda.device_count() > 1:
@@ -268,12 +272,12 @@ def run(model: torch.nn.Module, action_tokenizer):
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
                 writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()), step_num)
-            del video
-            del instructions
-            del ground_truth
-            del out
-            del loss
-            torch.cuda.empty_cache()
+            # del video
+            # del instructions
+            # del ground_truth
+            # del out
+            # del loss
+            # torch.cuda.empty_cache()
             step_num += 1
 
             with warmup_scheduler.dampening():

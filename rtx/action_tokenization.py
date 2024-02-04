@@ -85,5 +85,6 @@ class RTX1ActionTokenizer:
         tokens[:,:,3] = self.tokenize(action[:,:,6], self.bounds['gripper_closedness_action'][0], self.bounds['gripper_closedness_action'][1])
         tokens[:,:,4:7] = self.tokenize(action[:,:,3:6], self.bounds['rotation_delta'][0], self.bounds['rotation_delta'][1])
         tokens[:,:,8:] = self.tokenize(action[:,:,0:3], self.bounds['world_vector'][0], self.bounds['world_vector'][1])
+        print(tokens)
         return tokens
 
