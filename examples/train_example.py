@@ -243,9 +243,9 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     if is_dist_avail_and_initialized():
-        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.SGD, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
-        optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
