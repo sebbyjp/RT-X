@@ -24,7 +24,7 @@ class RTX1ActionTokenizer:
 
     def detokenize(self, action: torch.long, lower_bound: float, upper_bound: float) -> torch.float:
         action = action / (self.vocab_size - 1)
-        action = action * (upper_bound - lower_bound) + lower_bound
+        action = (action * (upper_bound - lower_bound)) + lower_bound
         return action
     
     def detokenize_vec(self, action_tokens: torch.long, device='cpu') -> torch.Tensor:
@@ -69,7 +69,7 @@ class RTX1ActionTokenizer:
         normalized_action = {}
         for k, v in action.items():
             # normalized_action[k] = torch.concatenate(v).squeeze()
-            normalized_action[k] = self.tokenize(torch.as_tensor(action[k]), self.bounds[k][0], self.bounds[k][1])
+            normalized_action[k] = self.tokenize(torch.as_tensor(v), self.bounds[k][0], self.bounds[k][1])
 
         tokens = torch.zeros(11, dtype=torch.long, device=device)
         # tokens[0:2] = normalized_action['base_displacement_vector']
