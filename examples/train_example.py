@@ -170,7 +170,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                         
                         # print(f' \n\n   {baseline} out',out)
                         out = action_tokenizer.tokenize_dict(out_raw, device)
-                        batch_actions[i,:,:] = nn.functional.one_hot(out_raw, 256).to(device)
+                        batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to(device)
 
 
                         # Log action frames in batch first sample:
