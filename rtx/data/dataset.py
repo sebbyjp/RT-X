@@ -208,7 +208,7 @@ data_augmentation=True)-> DLataset:
                         "random_hue",
                     ],
                 ),
-            } if data_augmentation else {}},
+            } if data_augmentation else {},
             resize_size=dict(
                 primary=(224, 224),
             ),
