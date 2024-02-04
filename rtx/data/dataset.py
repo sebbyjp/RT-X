@@ -127,7 +127,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
 
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
-        "gs://gresearch/robotics",
+        data_dir,
         load_camera_views=("primary", "wrist"),
        action_proprio_normalization_type= NormalizationType.NONE,
     )
