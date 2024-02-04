@@ -216,11 +216,11 @@ data_augmentation=True, shuffle_buffer_size=1000)-> DLataset:
         ),)
     return (dataset.flatten().shuffle(buffer_size=shuffle_buffer_size),[dataset_statistics], None)
 
-def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True, data_augmentation=True) -> (DLataset, list[dict], Optional[dict]) :
+def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True, data_augmentation=True, shuffle_buffer_size=1000) -> (DLataset, list[dict], Optional[dict]) :
     if name in DATASET_MIXES:
-        return get_interleaved_oxe_dataset(name, train=train, data_augmentation=data_augmentation)
+        return get_interleaved_oxe_dataset(name, train=train, data_augmentation=data_augmentation, shuffle_buffer_size=shuffle_buffer_size)
     else:
-        return get_single_oxe_dataset(name, train=train, data_augmentation=data_augmentation)
+        return get_single_oxe_dataset(name, train=train, data_augmentation=data_augmentation, shuffle_buffer_size=shuffle_buffer_size)
 
 def get_hf_dataset(  
         dataset_path: str = "jxu124/OpenX-Embodiment",
