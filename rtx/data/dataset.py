@@ -16,51 +16,51 @@ import h5py
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-class HDF5ImageDataset(Dataset):
-    def __init__(self, hdf5_file, transform=None):
-        """
-        Args:
-            hdf5_file (string): Path to the hdf5 file with annotations.
-            transform (callable, optional): Optional transform to be applied
-                on a sample.
-        """
-        self.hdf5_file = hdf5_file
-        self.transform = transform
+# class HDF5ImageDataset(Dataset):
+#     def __init__(self, hdf5_file, transform=None):
+#         """
+#         Args:
+#             hdf5_file (string): Path to the hdf5 file with annotations.
+#             transform (callable, optional): Optional transform to be applied
+#                 on a sample.
+#         """
+#         self.hdf5_file = hdf5_file
+#         self.transform = transform
 
-        # Open the hdf5 file and get the size of the dataset
-        with h5py.File(self.hdf5_file, 'r') as file:
-            self.length = len(file['images'])
+#         # Open the hdf5 file and get the size of the dataset
+#         with h5py.File(self.hdf5_file, 'r') as file:
+#             self.length = len(file['images'])
 
-    def __len__(self):
-        return self.length
+#     def __len__(self):
+#         return self.length
 
-    def __getitem__(self, idx):
-        with h5py.File(self.hdf5_file, 'r') as file:
-            image = file['observation']['image_head'][idx]
-            # Assuming the label is also stored in the same HDF5 file
-            label = file['labels'][idx]
+#     def __getitem__(self, idx):
+#         with h5py.File(self.hdf5_file, 'r') as file:
+#             image = file['observation']['image_head'][idx]
+#             # Assuming the label is also stored in the same HDF5 file
+#             label = file['labels'][idx]
 
-        # Convert image to numpy array if not already
-        image = np.array(image)
+#         # Convert image to numpy array if not already
+#         image = np.array(image)
 
-        # Convert to PIL Image for compatibility with torchvision transforms
-        image = Image.fromarray(image.astype('uint8'), 'RGB')
+#         # Convert to PIL Image for compatibility with torchvision transforms
+#         image = Image.fromarray(image.astype('uint8'), 'RGB')
 
-        if self.transform:
-            image = self.transform(image)
+#         if self.transform:
+#             image = self.transform(image)
 
-        return image, label
+#         return image, label
 
-# Define your transformations / augmentations
-transform = transforms.Compose([
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-])
+# # Define your transformations / augmentations
+# transform = transforms.Compose([
+#     transforms.RandomHorizontalFlip(),
+#     transforms.RandomRotation(10),
+#     transforms.ToTensor(),
+#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
+# ])
 
-# Create the dataset
-hdf5_dataset = HDF5ImageDataset(hdf5_file='your_dataset.hdf5', transform=transform)
+# # Create the dataset
+# hdf5_dataset = HDF5ImageDataset(hdf5_file='your_dataset.hdf5', transform=transform)
 
 
 class TorchRLDSDataset(IterableDataset):
@@ -123,7 +123,7 @@ class TorchRLDSDataset(IterableDataset):
 
 
 
-def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True) -> DLataset:
+def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True, data_augmentation=True) -> DLataset:
 
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
@@ -161,7 +161,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                         "random_hue",
                     ],
                 ),
-            },
+            } if data_augmentation else None ,
             resize_size=dict(
                 primary=(224, 224),
             ),
@@ -171,7 +171,8 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
         traj_read_threads=48,
     )
 
-def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True) -> DLataset:
+def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
+data_augmentation=True)-> DLataset:
     dataset_kwargs = make_oxe_dataset_kwargs(
     # see octo/data/oxe/oxe_dataset_configs.py for available datasets
     # (this is a very small one for faster loading)
@@ -207,19 +208,19 @@ def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "
                         "random_hue",
                     ],
                 ),
-            },
+            } if data_augmentation else None,
             resize_size=dict(
                 primary=(224, 224),
             ),
             num_parallel_calls=200,
         ),)
-    return (dataset.flatten().shuffle(buffer_size=100),[dataset_statistics], None)
+    return (dataset.flatten().shuffle(buffer_size=10000),[dataset_statistics], None)
 
-def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True) -> (DLataset, list[dict], Optional[dict]) :
+def get_oxe_dataset(name: str = "fractal20220817_data", train: bool = True, data_augmentation=True) -> (DLataset, list[dict], Optional[dict]) :
     if name in DATASET_MIXES:
-        return get_interleaved_oxe_dataset(name, train=train)
+        return get_interleaved_oxe_dataset(name, train=train, data_augmentation=data_augmentation)
     else:
-        return get_single_oxe_dataset(name, train=train)
+        return get_single_oxe_dataset(name, train=train, data_augmentation=data_augmentation)
 
 def get_hf_dataset(  
         dataset_path: str = "jxu124/OpenX-Embodiment",

@@ -19,7 +19,7 @@ def run(pretrained=False):
     ]
 
     # compute the train logits
-    train_logits = model.train(video, instructions)
+    train_logits = model.train_step(video, instructions)
 
     # set the model to evaluation mode
     model.model.eval()

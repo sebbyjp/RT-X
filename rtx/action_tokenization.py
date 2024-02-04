@@ -28,7 +28,7 @@ class RTX1ActionTokenizer:
         return action
     
     def detokenize_vec(self, action_tokens: torch.long, device='cpu') -> torch.Tensor:
-        action = torch.float(7, dtype=torch.long, device=device)
+        action = torch.zeros(7, dtype=torch.float, device=device)
         action[6] = self.detokenize(action_tokens[3], self.bounds['gripper_closedness_action'][0], self.bounds['gripper_closedness_action'][1])
         action[3:6] = self.detokenize(action_tokens[4:7], self.bounds['rotation_delta'][0], self.bounds['rotation_delta'][1])
         # tokens[7] = normalized_action['terminate_episode'][-1]

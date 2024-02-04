@@ -1051,7 +1051,7 @@ class RTX1(nn.Module):
 
         try:
             self.model.eval()
-            # shape => 2, 3, 6, 224, 224
+            # input video shape  => 2, 6, 3, 224, 224
             eval_logits = self.model(
                 video, instructions, cond_scale=cond_scale
             )

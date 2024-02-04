@@ -17,13 +17,14 @@ FLAGS = flags.FLAGS
 
 flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
-flags.DEFINE_float("lr", 3e-4, "Learning Rate.")
+flags.DEFINE_float("lr", 1e-3, "Learning Rate.")
 flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
-flags.DEFINE_float("weight_decay", 0.1, "Weight Decay.")
+flags.DEFINE_float("weight_decay", 0.01, "Weight Decay.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
-
+flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
+flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
 def is_dist_avail_and_initialized():
     if not dist.is_available():
         return False
@@ -33,10 +34,6 @@ def is_dist_avail_and_initialized():
 
     return True
 
-def save_on_master(*args, **kwargs):
-
-    if is_main_process():
-        torch.save(*args, **kwargs)
 
 def get_rank():
 
@@ -79,7 +76,7 @@ def init_distributed():
     dist.barrier()
     
 
-def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[]):
+def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[], conditioning_scale=1.0):
         # evaluate
     print('evaluating')
     model.eval()
@@ -100,7 +97,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
-            out = model.run(video, instructions)
+            out = model.run(video, instructions, conditioning_scale)
 
             eval_loss += criterion(out.reshape(-1, 256), ground_truth.reshape(-1,1).squeeze()).detach().to('cpu')
             eval_acc += (torch.max(out,-1)[1] == ground_truth).float().mean().detach().to('cpu')
@@ -131,7 +128,6 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 writer.add_scalar('pitch_pred', action_tokens[0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('yaw_pred', action_tokens[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', action_tokens[0,i,3], step_num +  n_frames*eval_steps + i)
-                exit()
 
 
                 
@@ -176,6 +172,10 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
     writer.flush()
 
 def run(model: torch.nn.Module, action_tokenizer):
+    """
+    Runs the training loop.
+    """
+    conditioning_scale = FLAGS.conditioning_scale
     init_distributed()
     writer = None
     if is_main_process():
@@ -183,7 +183,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     train_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=True), train=True, rank=get_rank(), world_size=get_world_size())
     eval_ds = None
     if is_main_process():
-        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False), train=False, rank=0, world_size=1)
+        eval_ds = TorchRLDSDataset(*get_oxe_dataset(FLAGS.dataset_name, train=False), train=False, rank=0, world_size=1, conditioning_scale=conditioning_scale)
  
     train_data_loader = DataLoader(
         train_ds,
@@ -225,7 +225,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.train_step = model.module.train_step
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+    optimizer = optim.AdamW(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
@@ -281,4 +281,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                 # save model
                 if is_main_process():
                     os.makedirs(f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}', exist_ok=True)
-                    torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+                    if is_dist_avail_and_initialized():
+                        torch.save(model.module.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
+                    else:
+                         torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
