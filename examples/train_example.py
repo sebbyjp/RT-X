@@ -144,6 +144,20 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 writer.add_scalar('yaw_pred', out_preds[0,i,6], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_pred', out_preds[0,i,3], step_num +  n_frames*eval_steps + i)
 
+                writer.add_scalar('x_gt_raw', sample['action'][0,i,8], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('y_gt_raw', sample['action'][0,i,9], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('z_gt_raw', sample['action'][0,i,10], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('roll_gt_raw', sample['action'][0,i,4], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('pitch_gt_raw', sample['action'][0,i,5], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('yaw_gt_raw', sample['action'][0,i,6], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('grasp_gt_raw', sample['action'][0,i,3], step_num +  n_frames*eval_steps + i)
+
+                writer.add_scalar('x_pred_raw', out_preds[0,i,8], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('y_pred_raw', out_preds[0,i,9], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('z_pred_raw', out_preds[0,i,10], step_num +  n_frames*eval_steps + i)
+                writer.add_scalar('grasp_pred_raw', out_preds[0,i,3], step_num +  n_frames*eval_steps + i)
+
+
 
                 
 
@@ -153,11 +167,11 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                 batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32, device=device)
                 for i in range(batch_size):
                     for j in range(n_frames):
-                        out = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
+                        out_raw = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
                         
                         # print(f' \n\n   {baseline} out',out)
-                        out = action_tokenizer.tokenize_dict(out, device)
-                        batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to(device)
+                        out = action_tokenizer.tokenize_dict(out_raw, device)
+                        batch_actions[i,:,:] = nn.functional.one_hot(out_raw, 256).to(device)
 
 
                         # Log action frames in batch first sample:
@@ -169,6 +183,8 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
                             writer.add_scalar('pitch_' + baseline.replace('/','_').replace('-','_'),out[5], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('yaw_' + baseline.replace('/','_').replace('-','_'),out[6], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_' + baseline.replace('/','_').replace('-','_'),out[3], step_num +  n_frames*eval_steps + j)
+
+                            writer.add_scalar('x_raw_' + baseline.replace('/','_').replace('-','_'),out_raw[8], step_num +  n_frames*eval_steps + j)
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
@@ -190,6 +206,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     """
     Runs the training loop.
     """
+    
     conditioning_scale = FLAGS.conditioning_scale
     init_distributed()
     writer = None
@@ -310,3 +327,19 @@ def run(model: torch.nn.Module, action_tokenizer):
                     else:
                          torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
             step_num += 1
+
+def train_model(config):
+    model = MyModel(...)
+    criterion = nn.CrossEntropyLoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
+    
+    for epoch in range(10):  # Number of epochs
+        # Training loop here
+        loss = criterion(output, target)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
+        
+        # Send the current training result back to Ray Tune
+        tune.report(loss=loss.item())
+
