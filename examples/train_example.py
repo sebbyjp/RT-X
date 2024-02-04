@@ -105,11 +105,12 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
             instructions = sample['language_instruction']
             ground_truth = rearrange(action_tokenizer.tokenize_xyzrpyg(sample['action'], device), 'b f a -> (b f a)')
 
-            out = rearrange(model.run(video, instructions, conditioning_scale), 'b f a bins -> (b f a) bins')
+            out = model.run(video, instructions, conditioning_scale)
             out_preds = torch.max(out,-1)[1]
+            
 
-            eval_loss += criterion(out, ground_truth).detach().to('cpu')
-            eval_acc += (out_preds == ground_truth).float().mean().detach().to('cpu')
+            eval_loss += criterion(rearrange(out, 'b f a bins -> (b f a) bins'), ground_truth).detach().to('cpu')
+            eval_acc += (rearrange(out_preds, 'b f a -> (b f a)') == ground_truth).float().mean().detach().to('cpu')
 
 
             future_logits = nn.functional.one_hot(out_preds[:,-1,:], 256).to(device).float()
@@ -124,8 +125,6 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
 
             ground_truth = rearrange(ground_truth, '(b f a) -> b f a')
-            out = rearrange(out, '(b f a) bins -> b f a bins')
-            out_preds = torch.max(out,-1)[1]
             # Log imagea and action frames in batch first sample:
             for i in range(n_frames):
                 writer.add_image('image',video[0,i,:,:,:], step_num +  n_frames*eval_steps + i, dataformats='CHW')
@@ -271,13 +270,15 @@ def run(model: torch.nn.Module, action_tokenizer):
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
-            out = rearrange(model.run(video, instructions, conditioning_scale), 'b f a bins -> (b f a) bins')
-            out_preds = torch.max(out,-1)[1]
 
-            loss = criterion(out, ground_truth)
+            out = model.train_step(video, instructions)
+            out_preds = torch.max(out,-1)[1]
+            
+
+            loss = criterion(rearrange(out, 'b f a bins -> (b f a) bins'), ground_truth)
             loss.backward()
             optimizer.step()
-            acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
+            acc = (rearrange(out_preds, 'b f a -> (b f a)') == ground_truth).float().mean().detach().to('cpu')
             # mixed precision training 
             # backward + optimizer step
             # fp16_scaler.scale(loss).backward()
