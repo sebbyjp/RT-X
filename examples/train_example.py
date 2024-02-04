@@ -272,7 +272,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     else:
         optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
+    # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
     warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
 
@@ -280,7 +280,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     lr_finder = LRFinder(model, optimizer, criterion, device=device)
     lr_finder.range_test(train_data_loader, start_lr=1e-7, end_lr=10, num_iter=100)
-    lr_finder.plot() # to inspect the loss-learning rate graph
+    ax, lr = lr_finder.plot(suggest_lr=True) # to inspect the loss-learning rate graph
+    print('\n\n\n lr', lr)
     lr_finder.reset() # to reset the model and optimizer to their initial state
     for epoch in range(FLAGS.num_epochs):
         # if torch.cuda.device_count() > 1:
