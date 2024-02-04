@@ -20,10 +20,10 @@ flags.DEFINE_integer("num_epochs", 1, "Number of epochs to train for.")
 flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_integer("num_warmup_steps", 1000, "Number of warmup steps.")
 flags.DEFINE_integer("shuffle_buffer_size", 1000, "Shuffle buffer size.")
-flags.DEFINE_integer("eval_batch_size", 2, "Eval Batch size.")
+flags.DEFINE_integer("eval_batch_size", 1, "Eval Batch size.")
 flags.DEFINE_float("lr", 1e-3, "Learning Rate.")
 flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
-flags.DEFINE_float("weight_decay", 0.01, "Weight Decay.")
+flags.DEFINE_float("weight_decay", 0, "Weight Decay.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
 flags.DEFINE_string("checkpoint_dir", "checkpoints", "Checkpoint directory.")
 flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
@@ -98,7 +98,7 @@ def eval(model: torch.nn.Module, action_tokenizer, writer: SummaryWriter, step_n
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            if (eval_steps == 36):
+            if (eval_steps == 100):
                 break
             video = (torch.permute(sample['observation']['image_primary'],(0,1,4,2,3)) / 255.0).to(device)
             instructions = sample['language_instruction']
@@ -230,11 +230,11 @@ def run(model: torch.nn.Module, action_tokenizer):
         model.run = model.module.run
         model.train_step = model.module.train_step
 
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss(label_smoothing=0.1)
     if is_dist_avail_and_initialized():
-        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.SGD, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
-        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = optim.SGD(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 

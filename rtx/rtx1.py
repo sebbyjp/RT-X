@@ -555,7 +555,7 @@ class TransformerAttention(nn.Module):
     def __init__(
         self,
         dim,
-        causal=True,
+        causal=False,
         dim_head=64,
         dim_context=None,
         heads=8,
