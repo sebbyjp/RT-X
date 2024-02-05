@@ -133,7 +133,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                 for i in range(batch_size):
                     for j in range(n_frames):
                         out_raw = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
-                        batch_actions_raw[i,:] = torch.tensor([out_raw['world_Vector'][0], out_raw['world_Vector'][1], out_raw['world_vector'][2], out_raw['rotation_delta'][0], out_raw['rotation_delta'][1], out_raw['rotation_delta'][2]],out_raw['gripper_closedness_action'],  device=device)
+                        batch_actions_raw[i,:] = torch.tensor([out_raw['world_Vector'][0], out_raw['world_vector'][1], out_raw['world_vector'][2], out_raw['rotation_delta'][0], out_raw['rotation_delta'][1], out_raw['rotation_delta'][2]],out_raw['gripper_closedness_action'],  device=device)
                         # print(f' \n\n   {baseline} out',out)
                         out = action_tokenizer.tokenize_dict(out_raw, device)
                         batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to(device)
