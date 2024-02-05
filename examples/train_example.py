@@ -15,6 +15,8 @@ from torch.distributed.optim import ZeroRedundancyOptimizer
 from einops import  rearrange
 from rtx.action_tokenization import RTX1ActionTokenizer
 from torch_lr_finder import LRFinder
+from rtx.train.dist import init_distributed, is_main_process, get_rank, get_world_size, is_dist_avail_and_initialized
+import wandb
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -33,72 +35,26 @@ flags.DEFINE_list("baselines", [], "Baselines to evaluate against.")
 flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augmentation.")
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
 flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
-flags.DEFINE_string("loss", "mse", "Loss function.")
+flags.DEFINE_string("loss", "cse", "Loss function.")
 
 
-def is_dist_avail_and_initialized():
-    if not dist.is_available():
-        return False
 
-    if not dist.is_initialized():
-        return False
-
-    return True
-
-
-def get_rank():
-
-    if not is_dist_avail_and_initialized():
-        return 0
-
-    return dist.get_rank()
-
-def get_world_size():
-    if not is_dist_avail_and_initialized():
-        return 1
-
-    return dist.get_world_size()
-
-def is_main_process():
-
-    return get_rank() == 0
-
-def init_distributed():
-    if not torch.cuda.is_available() or torch.cuda.device_count() <= 1:
-        return
-
-    # Initializes the distributed backend which will take care of synchronizing nodes/GPUs
-    dist_url = "env://" # default
-
-    # only works with torch.distributed.launch // torch.run
-    rank = int(os.environ["RANK"])
-    world_size = int(os.environ['WORLD_SIZE'])
-    local_rank = int(os.environ['LOCAL_RANK'])
-    dist.init_process_group(
-            backend="nccl",
-            init_method=dist_url,
-            world_size=world_size,
-            rank=rank)
-
-    # this will make all .cuda() calls work properly
-    torch.cuda.set_device(local_rank)
-
-    # synchronizes all the threads to reach this point before moving on
-    dist.barrier()
     
 
 def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: SummaryWriter, step_num, eval_data_loader, criterion, device, baseline_keys=[], conditioning_scale=1.0):
         # evaluate
     print('evaluating')
     model.eval()
+    mse = nn.MSELoss()
     with torch.no_grad():
         eval_loss = 0
         future_eval_loss = 0
         eval_acc = 0
         future_eval_acc = 0
         baselines = {}
+
         for baseline in baseline_keys:
-            baselines[baseline] = {'loss': 0, 'acc': 0, 'model': InferenceServer(baseline.split('/')[0], baseline.split('/')[1])}
+            baselines[baseline] = {'loss': 0, 'acc': 0, 'mse': 0, 'model': InferenceServer(baseline.split('/')[0], baseline.split('/')[1])}
 
 
         eval_steps = 0.
@@ -117,8 +73,11 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
             eval_acc += (out_preds == ground_truth).float().mean().detach().to('cpu')
 
 
+
+
             future_out_one_hot = nn.functional.one_hot(out_preds[:,-1,:], 256).to(device).float()
             future_gt = ground_truth[:,-1,:]
+            future_gt_raw = sample['action'][:,-1,:]
 
             future_eval_loss += criterion(rearrange(future_out_one_hot, 'b a bins -> (b a) bins'), rearrange(future_gt, 'b a -> (b a)')).detach().to('cpu')
             future_eval_acc += (out_preds[:,-1,:] == future_gt).float().mean().detach().to('cpu')
@@ -155,6 +114,12 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                 writer.add_scalar('yaw_gt_raw', sample['action'][0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_gt_raw', sample['action'][0,i,6], step_num +  n_frames*eval_steps + i)
 
+                wandb.log(wandb.Image(video[0,i,:,:,:], caption=f"frame {i}, gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"))
+                wandb.log({'x_gt': ground_truth[0,i,8], 'y_gt': ground_truth[0,i,9], 'z_gt': ground_truth[0,i,10], 'roll_gt': ground_truth[0,i,4], 'pitch_gt': ground_truth[0,i,5], 'yaw_gt': ground_truth[0,i,6], 'grasp_gt': ground_truth[0,i,3]})
+                wandb.log({'x_pred': out_preds[0,i,8], 'y_pred': out_preds[0,i,9], 'z_pred': out_preds[0,i,10], 'roll_pred': out_preds[0,i,4], 'pitch_pred': out_preds[0,i,5], 'yaw_pred': out_preds[0,i,6], 'grasp_pred': out_preds[0,i,3]})
+                wandb.log({'x_gt_raw': sample['action'][0,i,0], 'y_gt_raw': sample['action'][0,i,1], 'z_gt_raw': sample['action'][0,i,2], 'roll_gt_raw': sample['action'][0,i,3], 'pitch_gt_raw': sample['action'][0,i,4], 'yaw_gt_raw': sample['action'][0,i,5], 'grasp_gt_raw': sample['action'][0,i,6]})
+                
+
 
 
 
@@ -164,10 +129,11 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
                 batch_actions = torch.zeros((video.shape[0], 11, 256), dtype=torch.float32, device=device)
+                batch_actions_raw = torch.zeros((video.shape[0], 7), dtype=torch.float32, device=device)
                 for i in range(batch_size):
                     for j in range(n_frames):
                         out_raw = baseline_model(image=(video[i,j,:,:,:] * 255.0).cpu().numpy(), instruction=instructions[i], save=False)
-                        
+                        batch_actions_raw[i,:] = torch.tensor([out_raw['world_Vector'][0], out_raw['world_Vector'][1], out_raw['world_vector'][2], out_raw['rotation_delta'][0], out_raw['rotation_delta'][1], out_raw['rotation_delta'][2]],out_raw['gripper_closedness_action'],  device=device)
                         # print(f' \n\n   {baseline} out',out)
                         out = action_tokenizer.tokenize_dict(out_raw, device)
                         batch_actions[i,:,:] = nn.functional.one_hot(out, 256).to(device)
@@ -175,6 +141,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
 
                         # Log action frames in batch first sample:
                         if i == 0:
+                            baseline_name = baseline.replace('/','_').replace('-','_')
                             writer.add_scalar('x_' + baseline.replace('/','_').replace('-','_'),out[8], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('y_' + baseline.replace('/','_').replace('-','_'),out[9], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('z_' + baseline.replace('/','_').replace('-','_'),out[10], step_num +  n_frames*eval_steps + j)
@@ -191,11 +158,17 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                             writer.add_scalar('yaw_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['rotation_delta'][2], step_num +  n_frames*eval_steps + j)
                             writer.add_scalar('grasp_raw_' + baseline.replace('/','_').replace('-','_'),out_raw['gripper_closedness_action'], step_num +  n_frames*eval_steps + j)
 
+                            wandb.log({'x_' + baseline_name: out[8], 'y_' + baseline_name: out[9], 'z_' + baseline_name: out[10], 'roll_' + baseline_name: out[4], 'pitch_' + baseline_name: out[5], 'yaw_' + baseline_name: out[6], 'grasp_' + baseline_name: out[3]})
+                            wandb.log({'x_raw_' + baseline_name: out_raw['world_vector'][0], 'y_raw_' + baseline_name: out_raw['world_vector'][1], 'z_raw_' + baseline_name: out_raw['world_vector'][2], 'roll_raw_' + baseline_name: out_raw['rotation_delta'][0], 'pitch_raw_' + baseline_name: out_raw['rotation_delta'][1], 'yaw_raw_' + baseline_name: out_raw['rotation_delta'][2], 'grasp_raw_' + baseline_name: out_raw['gripper_closedness_action']})
+
                         # print(f' \n\n   {baseline} tokenized',out)
            
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                 baselines[baseline]['loss'] += criterion(batch_actions[0,:,:], future_gt[0,:]).to('cpu').detach()
                 baselines[baseline]['acc'] += (torch.max(batch_actions[0,:,:],-1)[1] == future_gt[0,:]).float().mean().to('cpu').detach()
+
+                baselines[baseline]['mse'] += mse(batch_actions_raw[0,:], future_gt_raw[0,:]).to('cpu').detach()
+                
             eval_steps += 1
 
     writer.add_scalar('eval_loss', eval_loss / eval_steps, step_num)
@@ -203,9 +176,16 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
     writer.add_scalar('eval_acc', eval_acc / eval_steps, step_num)
     writer.add_scalar('future_eval_acc', future_eval_acc / eval_steps, step_num)
 
+    wandb.log({'eval_loss': eval_loss / eval_steps, 'future_eval_loss': future_eval_loss / eval_steps, 'eval_acc': eval_acc / eval_steps, 'future_eval_acc': future_eval_acc / eval_steps})
+    
     for baseline in FLAGS.baselines:
+        baseline_name = baseline.replace('/','_').replace('-','_')
         writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_future_loss", baselines[baseline]['loss'] / eval_steps, step_num)
         writer.add_scalar(f"{baseline.replace('/','_').replace('-','_')}_future_acc", baselines[baseline]['acc'] / eval_steps, step_num)
+        wandb.log({f"{baseline_name}_future_loss": baselines[baseline]['loss'] / eval_steps, f"{baseline_name}_future_acc": baselines[baseline]['acc'] / eval_steps})
+        wandb.log({f"{baseline_name}_future_mse": baselines[baseline]['mse'] / eval_steps})
+
+        
     writer.flush()
 
 def run(model: torch.nn.Module, action_tokenizer):
@@ -213,6 +193,27 @@ def run(model: torch.nn.Module, action_tokenizer):
     Runs the training loop.
     """
     
+    wandb.init(
+    # set the wandb project where this run will be logged
+    project="rtdiffusion",
+    config = dict(
+    num_epochs=FLAGS.num_epochs,
+    batch_size=FLAGS.batch_size,
+    num_warmup_steps=FLAGS.num_warmup_steps,
+    shuffle_buffer_size=FLAGS.shuffle_buffer_size,
+    eval_batch_size=FLAGS.eval_batch_size,
+    lr=FLAGS.lr,
+    min_lr=FLAGS.min_lr,
+    weight_decay=FLAGS.weight_decay,
+    dataset_name=FLAGS.dataset_name,
+    checkpoint_dir=FLAGS.checkpoint_dir,
+    baselines=FLAGS.baselines,
+    data_augmentation=FLAGS.data_augmentation,
+    conditioning_scale=FLAGS.conditioning_scale,
+    label_smoothing=FLAGS.label_smoothing,
+    loss=FLAGS.loss,
+    )
+    )   
     conditioning_scale = FLAGS.conditioning_scale
     init_distributed()
     writer = None
@@ -270,7 +271,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
-    # warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
+    warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
     optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     step_num = 0
 
@@ -284,6 +285,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         #     train_data_loader.sampler.set_epoch(epoch)
         if is_main_process():
             print(f'epoch {epoch}')
+            wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
             if step_num % 500 == 0:
                 if is_main_process():
@@ -315,6 +317,10 @@ def run(model: torch.nn.Module, action_tokenizer):
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
                 writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()), step_num)
+                wandb.log({'loss': float(loss.to('cpu').detach().numpy()), 'acc': float(acc.to('cpu').detach().numpy())})
+                wandb.log({'lr': optimizer.param_groups[0]['lr']})
+                wandb.log({'step': step_num})
+                wandb.log({'batch_idx': i})
             # del video
             # del instructions
             # del ground_truth
