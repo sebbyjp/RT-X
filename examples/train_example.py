@@ -192,28 +192,28 @@ def run(model: torch.nn.Module, action_tokenizer):
     """
     Runs the training loop.
     """
-    
-    wandb.init(
-    # set the wandb project where this run will be logged
-    project="rtdiffusion",
-    config = dict(
-    num_epochs=FLAGS.num_epochs,
-    batch_size=FLAGS.batch_size,
-    num_warmup_steps=FLAGS.num_warmup_steps,
-    shuffle_buffer_size=FLAGS.shuffle_buffer_size,
-    eval_batch_size=FLAGS.eval_batch_size,
-    lr=FLAGS.lr,
-    min_lr=FLAGS.min_lr,
-    weight_decay=FLAGS.weight_decay,
-    dataset_name=FLAGS.dataset_name,
-    checkpoint_dir=FLAGS.checkpoint_dir,
-    baselines=FLAGS.baselines,
-    data_augmentation=FLAGS.data_augmentation,
-    conditioning_scale=FLAGS.conditioning_scale,
-    label_smoothing=FLAGS.label_smoothing,
-    loss=FLAGS.loss,
-    )
-    )   
+    if is_main_process():
+        wandb.init(
+        # set the wandb project where this run will be logged
+        project="rtdiffusion",
+        config = dict(
+        num_epochs=FLAGS.num_epochs,
+        batch_size=FLAGS.batch_size,
+        num_warmup_steps=FLAGS.num_warmup_steps,
+        shuffle_buffer_size=FLAGS.shuffle_buffer_size,
+        eval_batch_size=FLAGS.eval_batch_size,
+        lr=FLAGS.lr,
+        min_lr=FLAGS.min_lr,
+        weight_decay=FLAGS.weight_decay,
+        dataset_name=FLAGS.dataset_name,
+        checkpoint_dir=FLAGS.checkpoint_dir,
+        baselines=FLAGS.baselines,
+        data_augmentation=FLAGS.data_augmentation,
+        conditioning_scale=FLAGS.conditioning_scale,
+        label_smoothing=FLAGS.label_smoothing,
+        loss=FLAGS.loss,
+        )
+        )   
     conditioning_scale = FLAGS.conditioning_scale
     init_distributed()
     writer = None
