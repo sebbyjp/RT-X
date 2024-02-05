@@ -114,7 +114,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
                 writer.add_scalar('yaw_gt_raw', sample['action'][0,i,5], step_num +  n_frames*eval_steps + i)
                 writer.add_scalar('grasp_gt_raw', sample['action'][0,i,6], step_num +  n_frames*eval_steps + i)
 
-                wandb.log(wandb.Image(video[0,i,:,:,:], caption=f"frame {i}, gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"))
+                wandb.log({f'image_frame{i}' : wandb.Image(video[0,i,:,:,:], caption=f" gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}")})
                 wandb.log({'x_gt': ground_truth[0,i,8], 'y_gt': ground_truth[0,i,9], 'z_gt': ground_truth[0,i,10], 'roll_gt': ground_truth[0,i,4], 'pitch_gt': ground_truth[0,i,5], 'yaw_gt': ground_truth[0,i,6], 'grasp_gt': ground_truth[0,i,3]})
                 wandb.log({'x_pred': out_preds[0,i,8], 'y_pred': out_preds[0,i,9], 'z_pred': out_preds[0,i,10], 'roll_pred': out_preds[0,i,4], 'pitch_pred': out_preds[0,i,5], 'yaw_pred': out_preds[0,i,6], 'grasp_pred': out_preds[0,i,3]})
                 wandb.log({'x_gt_raw': sample['action'][0,i,0], 'y_gt_raw': sample['action'][0,i,1], 'z_gt_raw': sample['action'][0,i,2], 'roll_gt_raw': sample['action'][0,i,3], 'pitch_gt_raw': sample['action'][0,i,4], 'yaw_gt_raw': sample['action'][0,i,5], 'grasp_gt_raw': sample['action'][0,i,6]})
