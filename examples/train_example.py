@@ -256,7 +256,7 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
-    if wandb.config.freeze_vit:
+    if FLAGS.freeze_vit:
         for param in model.vit.parameters():
             param.requires_grad = False
     if is_main_process():
