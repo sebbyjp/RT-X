@@ -36,6 +36,7 @@ flags.DEFINE_bool("data_augmentation", True, "Whether or not to use data augment
 flags.DEFINE_float("conditioning_scale", 1.0, "Scale of film conditioning. on text input.")
 flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
 flags.DEFINE_string("loss", "cse", "Loss function.")
+flags.DEFINE_bool("freeze_vit", False, "Freeze ViT weights.")
 
 
 
@@ -188,6 +189,9 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
         
     writer.flush()
 
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
 def run(model: torch.nn.Module, action_tokenizer):
     """
     Runs the training loop.
@@ -213,6 +217,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         conditioning_scale=FLAGS.conditioning_scale,
         label_smoothing=FLAGS.label_smoothing,
         loss=FLAGS.loss,
+        freeze_vit= FLAGS.freeze_vit
         )
         )   
     conditioning_scale = FLAGS.conditioning_scale
@@ -251,6 +256,11 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    if wandb.config.freeze_vit:
+        for param in model.vit.parameters():
+            param.requires_grad = False
+    if is_main_process():
+       print('\n\n Training model with {} parameters'.format(count_parameters(model)))
 
     if torch.cuda.is_available() and torch.cuda.device_count()  > 1:
         if is_main_process():
@@ -272,7 +282,6 @@ def run(model: torch.nn.Module, action_tokenizer):
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
     warmup_scheduler = warmup.LinearWarmup(optimizer, warmup_period=warmup_period)
-    optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     step_num = 0
 
     # lr_finder = LRFinder(model, optimizer, criterion, device=device)
@@ -309,11 +318,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             loss.backward()
             optimizer.step()
             acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
-            # mixed precision training 
-            # backward + optimizer step
-            # fp16_scaler.scale(loss).backward()
-            # fp16_scaler.step(optimizer)
-            # fp16_scaler.update()
+
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
                 writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()), step_num)
@@ -321,12 +326,6 @@ def run(model: torch.nn.Module, action_tokenizer):
                 wandb.log({'lr': optimizer.param_groups[0]['lr']})
                 wandb.log({'step': step_num})
                 wandb.log({'batch_idx': i})
-            # del video
-            # del instructions
-            # del ground_truth
-            # del out
-            # del loss
-            # torch.cuda.empty_cache()
 
             with warmup_scheduler.dampening():
                 if warmup_scheduler.last_step + 1 >= warmup_period:
@@ -346,18 +345,4 @@ def run(model: torch.nn.Module, action_tokenizer):
                          torch.save(model.state_dict(), f'{FLAGS.checkpoint_dir}/{FLAGS.model}_{FLAGS.dataset_name}/step{step_num}.pt')
             step_num += 1
 
-# def train_model(config):
-#     model = MyModel(...)
-#     criterion = nn.CrossEntropyLoss()
-#     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"])
-    
-#     for epoch in range(10):  # Number of epochs
-#         # Training loop here
-#         loss = criterion(output, target)
-#         optimizer.zero_grad()
-#         loss.backward()
-#         optimizer.step()
-        
-#         # Send the current training result back to Ray Tune
-#         tune.report(loss=loss.item())
 
