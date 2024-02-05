@@ -192,6 +192,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     """
     Runs the training loop.
     """
+    init_distributed()
     if is_main_process():
         wandb.init(
         # set the wandb project where this run will be logged
@@ -215,7 +216,6 @@ def run(model: torch.nn.Module, action_tokenizer):
         )
         )   
     conditioning_scale = FLAGS.conditioning_scale
-    init_distributed()
     writer = None
     if is_main_process():
         writer = SummaryWriter()
