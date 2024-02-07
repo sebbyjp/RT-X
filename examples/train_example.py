@@ -458,7 +458,7 @@ def embed_text(input: list[str] | str, batch_size: int = 1) -> tf.Tensor:
     if isinstance(input, str):
         input = input.lstrip(' ').rstrip(' ')
         input = np.tile(np.array(input), (batch_size,))
-    embedded = TEXT_ENCODER(input).numpy()[0]
+    embedded = TEXT_ENCODER(input).numpy()
     return torch.as_tensor(tf.reshape(
         tf.convert_to_tensor(embedded, dtype=tf.float32), (batch_size, 512)
     ).numpy())
@@ -679,8 +679,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)[:,-1,:]
             
-            print(instructions)
-            exit()
+
             obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
             # print('video', video.shape)
             # print('nle', obs['natural_language_embedding'].shape)
