@@ -482,7 +482,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'Using {torch.cuda.device_count()} GPUs')
         # Convert BatchNorm to SyncBatchNorm.
-        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
         model = DDP(model,
                     device_ids=[get_rank()],
@@ -525,13 +525,13 @@ def run(model: torch.nn.Module, action_tokenizer):
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
 
-            if step_num % 250 == 0:
-                if is_main_process():
-                    eval(model, action_tokenizer, writer, step_num,
-                         eval_data_loader, criterion, device, FLAGS.baselines,
-                         conditioning_scale)
-                if torch.cuda.device_count() > 1:
-                    dist.barrier()
+            # if step_num % 10000 == 0:
+            #     if is_main_process():
+            #         eval(model, action_tokenizer, writer, step_num,
+            #              eval_data_loader, criterion, device, FLAGS.baselines,
+            #              conditioning_scale)
+            #     if torch.cuda.device_count() > 1:
+            #         dist.barrier()
             # if i == 250:
             #     break
 
@@ -545,7 +545,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
+            outs = model.train_step(video, instructions)[:,-1,:,:] # only take last frame
             out_preds = torch.max(outs, -1)[1]
 
             loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
