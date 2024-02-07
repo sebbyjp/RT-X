@@ -26,7 +26,7 @@ flags.DEFINE_integer("batch_size", 2, "Batch size.")
 flags.DEFINE_integer("num_warmup_steps", 1000, "Number of warmup steps.")
 flags.DEFINE_integer("shuffle_buffer_size", 1000, "Shuffle buffer size.")
 flags.DEFINE_integer("eval_batch_size", 1, "Eval Batch size.")
-flags.DEFINE_float("lr", 1e-3, "Learning Rate.")
+flags.DEFINE_float("lr", 1e-4, "Learning Rate.")
 flags.DEFINE_float("min_lr", 1e-6, "Min Learning Rate.")
 flags.DEFINE_float("weight_decay", 0, "Weight Decay.")
 flags.DEFINE_string("dataset_name", "fractal20220817_data", "Dataset name.")
@@ -60,7 +60,7 @@ def eval(model: torch.nn.Module, action_tokenizer: RTX1ActionTokenizer, writer: 
 
         eval_steps = 0.
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
-            if (eval_steps == 100):
+            if (eval_steps == 1):
                 break
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
@@ -275,9 +275,9 @@ def run(model: torch.nn.Module, action_tokenizer):
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
-        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.Adam, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = ZeroRedundancyOptimizer(model.parameters(), optimizer_class=torch.optim.AdamW, lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     else:
-        optimizer = optim.Adam(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
+        optimizer = optim.AdamW(model.parameters(), lr=FLAGS.lr, weight_decay=FLAGS.weight_decay)
     optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
@@ -304,20 +304,20 @@ def run(model: torch.nn.Module, action_tokenizer):
 
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)[:,-1,:]
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
             outs = model.train_step(video, instructions)
-            out_preds = torch.max(outs,-1)[1]
+            future_out_preds = torch.max(outs,-1)[1][:,-1,:]
             
 
-            loss = criterion(rearrange(outs, 'b f a bins -> (b f a) bins'), rearrange(ground_truth, 'b f a -> (b f a)' ))
+            loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'), rearrange(ground_truth, 'b a -> (b a)' ))
             loss.backward()
             optimizer.step()
-            acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
+            acc = (future_out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
