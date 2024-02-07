@@ -568,7 +568,15 @@ def run(model: torch.nn.Module, action_tokenizer):
                         'lr': optimizer.param_groups[0]['lr'],
                         'x_pred_train': out_preds[0, 8],
                         'x_gt_train': ground_truth[0, 8],
-                        'instruction_train': instructions[0],
+                        'y_pred_train': out_preds[0, 9],
+                        'y_gt_train': ground_truth[0, 9],
+                        'z_pred_train': out_preds[0, 10],
+                        'z_gt_train': ground_truth[0, 10],
+                        'roll_pred_train': out_preds[0, 4],
+                        'roll_gt_train': ground_truth[0, 4],
+                        'pitch_pred_train': out_preds[0, 5],
+                        'pitch_gt_train': ground_truth[0, 5],
+                        # 'instruction_train': instructions[0],
                         'batch_idx': i,
                         'train_step': step_num
                     })
