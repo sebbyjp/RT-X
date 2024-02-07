@@ -250,9 +250,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
-    t0 = num_steps // 15
+    t0 = 250
     lr_min = FLAGS.min_lr
-    max_step = t0*3 + warmup_period
+    max_step = t0*50 + warmup_period
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
