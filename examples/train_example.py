@@ -85,129 +85,128 @@ def eval(model: torch.nn.Module,
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
-                sample['action'], device)
+                sample['action'], device)[:,-1,:]
 
-            outs = model.run(video, instructions, conditioning_scale)
+            outs = reduce(model.run(video, instructions, conditioning_scale), 'b f a bins -> b a bins', 'mean')
             out_preds = torch.max(outs, -1)[1]
 
             eval_loss += criterion(
-                rearrange(outs, 'b f a bins -> (b f a) bins'),
-                rearrange(ground_truth, 'b f a -> (b f a)')).detach().to('cpu')
+                rearrange(outs, 'b a bins -> (b a) bins'),
+                rearrange(ground_truth, 'b a -> (b a)')).detach().to('cpu')
             eval_acc += (
                 out_preds == ground_truth).float().mean().detach().to('cpu')
 
             future_out_one_hot = nn.functional.one_hot(out_preds[:, -1, :],
                                                        256).to(device).float()
-            future_gt = ground_truth[:, -1, :]
+            # future_gt = ground_truth[:, -1, :]
             future_gt_raw = sample['action'][:, -1, :]
 
-            future_eval_loss += criterion(
-                rearrange(future_out_one_hot, 'b a bins -> (b a) bins'),
-                rearrange(future_gt, 'b a -> (b a)')).detach().to('cpu')
-            future_eval_acc += (
-                out_preds[:,
-                          -1, :] == future_gt).float().mean().detach().to('cpu')
+            # future_eval_loss += criterion(
+            #     rearrange(future_out_one_hot, 'b a bins -> (b a) bins'),
+            #     rearrange(future_gt, 'b a -> (b a)')).detach().to('cpu')
+            # future_eval_acc += (
+            #     out_preds[:,
+            #               -1, :] == future_gt).float().mean().detach().to('cpu')
 
             batch_size = video.shape[0]
             n_frames = video.shape[1]
 
             # Log imagea and action frames in batch first sample:
-            for i in range(n_frames):
-                writer.add_image('image',
-                                 video[0, i, :, :, :],
-                                 step_num + n_frames * eval_steps + i,
-                                 dataformats='CHW')
-                writer.add_text('instruction', instructions[0],
-                                step_num + n_frames * eval_steps + i)
-                writer.add_scalar('x_gt', ground_truth[0, i, 8],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('y_gt', ground_truth[0, i, 9],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('z_gt', ground_truth[0, i, 10],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('roll_gt', ground_truth[0, i, 4],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('pitch_gt', ground_truth[0, i, 5],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('yaw_gt', ground_truth[0, i, 6],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('grasp_gt', ground_truth[0, i, 3],
-                                  step_num + n_frames * eval_steps + i)
+            # for i in range(n_frames):
+            #     writer.add_image('image',
+            #                      video[0, i, :, :, :],
+            #                      step_num + n_frames * eval_steps + i,
+            #                      dataformats='CHW')
+            #     writer.add_text('instruction', instructions[0],
+            #                     step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('x_gt', ground_truth[0, i, 8],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('y_gt', ground_truth[0, i, 9],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('z_gt', ground_truth[0, i, 10],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('roll_gt', ground_truth[0, i, 4],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('pitch_gt', ground_truth[0, i, 5],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('yaw_gt', ground_truth[0, i, 6],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('grasp_gt', ground_truth[0, i, 3],
+            #                       step_num + n_frames * eval_steps + i)
 
-                writer.add_scalar('x_pred', out_preds[0, i, 8],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('y_pred', out_preds[0, i, 9],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('z_pred', out_preds[0, i, 10],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('roll_pred', out_preds[0, i, 4],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('pitch_pred', out_preds[0, i, 5],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('yaw_pred', out_preds[0, i, 6],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('grasp_pred', out_preds[0, i, 3],
-                                  step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('x_pred', out_preds[0, i, 8],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('y_pred', out_preds[0, i, 9],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('z_pred', out_preds[0, i, 10],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('roll_pred', out_preds[0, i, 4],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('pitch_pred', out_preds[0, i, 5],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('yaw_pred', out_preds[0, i, 6],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('grasp_pred', out_preds[0, i, 3],
+            #                       step_num + n_frames * eval_steps + i)
 
-                writer.add_scalar('x_gt_raw', sample['action'][0, i, 0],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('y_gt_raw', sample['action'][0, i, 1],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('z_gt_raw', sample['action'][0, i, 2],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('roll_gt_raw', sample['action'][0, i, 3],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('pitch_gt_raw', sample['action'][0, i, 4],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('yaw_gt_raw', sample['action'][0, i, 5],
-                                  step_num + n_frames * eval_steps + i)
-                writer.add_scalar('grasp_gt_raw', sample['action'][0, i, 6],
-                                  step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('x_gt_raw', sample['action'][0, i, 0],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('y_gt_raw', sample['action'][0, i, 1],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('z_gt_raw', sample['action'][0, i, 2],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('roll_gt_raw', sample['action'][0, i, 3],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('pitch_gt_raw', sample['action'][0, i, 4],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('yaw_gt_raw', sample['action'][0, i, 5],
+            #                       step_num + n_frames * eval_steps + i)
+            #     writer.add_scalar('grasp_gt_raw', sample['action'][0, i, 6],
+            #                       step_num + n_frames * eval_steps + i)
 
-                if i == 5:
-                    wandb.log(
-                        {
-                            'image_frames':
-                                wandb.Video(
-                                    np.array(255 * video[0, :, :, :, :].detach().to(
-                                        'cpu')).astype(np.uint8),
-                                    caption=
-                                    f" gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"
-                                ),
-                            # 'instruction': instructions[0],
-                            'train_step': step_num
-                        })
-                    wandb.log({
-                        'x_gt': ground_truth[0, i, 8],
-                        'y_gt': ground_truth[0, i, 9],
-                        'z_gt': ground_truth[0, i, 10],
-                        'roll_gt': ground_truth[0, i, 4],
-                        'pitch_gt': ground_truth[0, i, 5],
-                        'yaw_gt': ground_truth[0, i, 6],
-                        'grasp_gt': ground_truth[0, i, 3],
-                        'train_step': step_num
-                    })
-                    wandb.log({
-                        'x_pred': out_preds[0, i, 8],
-                        'y_pred': out_preds[0, i, 9],
-                        'z_pred': out_preds[0, i, 10],
-                        'roll_pred': out_preds[0, i, 4],
-                        'pitch_pred': out_preds[0, i, 5],
-                        'yaw_pred': out_preds[0, i, 6],
-                        'grasp_pred': out_preds[0, i, 3],
-                        'train_step': step_num
-                    })
-                    wandb.log({
-                        'x_gt_raw': sample['action'][0, i, 0],
-                        'y_gt_raw': sample['action'][0, i, 1],
-                        'z_gt_raw': sample['action'][0, i, 2],
-                        'roll_gt_raw': sample['action'][0, i, 3],
-                        'pitch_gt_raw': sample['action'][0, i, 4],
-                        'yaw_gt_raw': sample['action'][0, i, 5],
-                        'grasp_gt_raw': sample['action'][0, i, 6],
-                        'train_step': step_num,
-                        'instruction': instructions[0]
-                    })
+            wandb.log(
+            {
+                'image_frames':
+                    wandb.Video(
+                        np.array(255 * video[0, :, :, :, :].detach().to(
+                            'cpu')).astype(np.uint8),
+                        caption=
+                        f" gt: {str(ground_truth[0,-1,:])}, pred: {str(out_preds[0,-1,:])}"
+                    ),
+                # 'instruction': instructions[0],
+                'train_step': step_num
+            })
+            wandb.log({
+                'x_gt': ground_truth[0, -1, 8],
+                'y_gt': ground_truth[0, -1, 9],
+                'z_gt': ground_truth[0, -1, 10],
+                'roll_gt': ground_truth[0, -1, 4],
+                'pitch_gt': ground_truth[0, -1, 5],
+                'yaw_gt': ground_truth[0, -1, 6],
+                'grasp_gt': ground_truth[0, -1, 3],
+                'train_step': step_num
+            })
+            wandb.log({
+                'x_pred': out_preds[0, 8],
+                'y_pred': out_preds[0, 9],
+                'z_pred': out_preds[0, 10],
+                'roll_pred': out_preds[0, 4],
+                'pitch_pred': out_preds[0, 5],
+                'yaw_pred': out_preds[0, 6],
+                'grasp_pred': out_preds[0, 3],
+                'train_step': step_num
+            })
+            wandb.log({
+                'x_gt_raw': sample['action'][0, -1, 0],
+                'y_gt_raw': sample['action'][0, -1, 1],
+                'z_gt_raw': sample['action'][0, -1, 2],
+                'roll_gt_raw': sample['action'][0, -1, 3],
+                'pitch_gt_raw': sample['action'][0, -1, 4],
+                'yaw_gt_raw': sample['action'][0, -1, 5],
+                'grasp_gt_raw': sample['action'][0, -1, 6],
+                'train_step': step_num,
+                'instruction': instructions[0]
+            })
 
             video = rearrange(video, 'b f c h w -> b f h w c') * 255
             for baseline in FLAGS.baselines:
@@ -343,9 +342,9 @@ def eval(model: torch.nn.Module,
 
                 # print(f' \n\n   {baseline} action', torch.max(batch_actions[-1,:,:],-1)[1])
                 baselines[baseline]['loss'] += criterion(
-                    batch_actions[0, :, :], future_gt[0, :]).to('cpu').detach()
+                    batch_actions[0, :, :], ground_truth[0, :]).to('cpu').detach()
                 baselines[baseline]['acc'] += (torch.max(
-                    batch_actions[0, :, :], -1)[1] == future_gt[
+                    batch_actions[0, :, :], -1)[1] == ground_truth[
                         0, :]).float().mean().to('cpu').detach()
 
                 baselines[baseline]['mse'] += mse(
@@ -565,7 +564,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                         'acc': float(acc.to('cpu').detach().numpy()),
                         'lr': optimizer.param_groups[0]['lr'],
                         'x_pred_train': out_preds[0, 8],
-                        'x_gt_train': ground_truth[0, -1, 8],
+                        'x_gt_train': ground_truth[0, 8],
                         'instruction_train': instructions[0],
                         'batch_idx': i,
                         'train_step': step_num
