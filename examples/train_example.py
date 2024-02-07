@@ -208,7 +208,7 @@ def eval(model: torch.nn.Module,
                         'train_step': step_num
                     })
 
-            video = torch.permute(video, (0, 1, 3, 4, 2))
+            video = rearrange(video, 'b f c h w -> b f h w c')
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
                 batch_actions = torch.zeros((video.shape[0], 11, 256),
@@ -465,7 +465,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
-    t0 = 250
+    t0 = 250 * 5
     lr_min = FLAGS.min_lr
     max_step = t0 * 50 + warmup_period
 

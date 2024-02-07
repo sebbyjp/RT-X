@@ -853,7 +853,7 @@ class RT1(nn.Module):
         video,
         texts: Optional[List[str]] = None,
         text_embeds: Optional[Tensor] = None,
-        cond_drop_prob = 0.
+        cond_drop_prob = None
     ):
         assert exists(texts) ^ exists(text_embeds)
         cond_kwargs = dict(texts = texts, text_embeds = text_embeds)
