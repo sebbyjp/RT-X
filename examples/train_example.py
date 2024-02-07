@@ -679,11 +679,12 @@ def run(model: torch.nn.Module, action_tokenizer):
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)[:,-1,:]
             
-
-            obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
-            print('video', video.shape)
-            print('nle', obs['natural_language_embedding'].shape)
+            print(instructions)
             exit()
+            obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
+            # print('video', video.shape)
+            # print('nle', obs['natural_language_embedding'].shape)
+            # exit()
             model.module.set_actions(dict_to_device({
                 'terminate_episode': torch.ones((video.shape[0], 1), dtype=torch.long),
                 'world_vector':     sample['action'][:,-1,3],
