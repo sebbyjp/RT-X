@@ -208,7 +208,7 @@ def eval(model: torch.nn.Module,
                         'train_step': step_num
                     })
 
-            video = rearrange(video, 'b f c h w -> b f h w c')
+            video = rearrange(video, 'b f c h w -> b f h w c') * 255
             for baseline in FLAGS.baselines:
                 baseline_model = baselines[baseline]['model']
                 batch_actions = torch.zeros((video.shape[0], 11, 256),
@@ -563,6 +563,9 @@ def run(model: torch.nn.Module, action_tokenizer):
                         'loss': float(loss.to('cpu').detach().numpy()),
                         'acc': float(acc.to('cpu').detach().numpy()),
                         'lr': optimizer.param_groups[0]['lr'],
+                        'x_pred_train': out_preds[0, -1, 8],
+                        'x_gt_train': ground_truth[0, -1, 8],
+                        
                         'batch_idx': i,
                         'train_step': step_num
                     })
