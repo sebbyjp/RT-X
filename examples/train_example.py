@@ -685,10 +685,10 @@ def run(model: torch.nn.Module, action_tokenizer):
             # print('nle', obs['natural_language_embedding'].shape)
             # exit()
             model.module.set_actions(dict_to_device({
-                'terminate_episode': torch.ones((video.shape[0], 1), dtype=torch.long),
-                'world_vector':     sample['action'][:,-1,:3],
-                'rotation_delta':   sample['action'][:,-1,3:6],
-                'gripper_closedness_action': sample['action'][:,-1,6]
+                'terminate_episode': torch.ones((video.shape[0], 6,1), dtype=torch.long),
+                'world_vector':     sample['action'][:,:,:3],
+                'rotation_delta':   sample['action'][:,:,3:6],
+                'gripper_closedness_action': sample['action'][:,:,6:]
             }, device))
             network_state = np_to_tensor(
                 batched_space_sampler(
