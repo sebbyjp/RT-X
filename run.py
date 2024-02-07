@@ -1,8 +1,10 @@
-from examples import rtx1_example, rtx2_example, train_example
+from examples import rtx1_example, train_example
 from rtx import RTX1, RTX2
 from rtx.rtx1 import FilmViTConfig, RT1Config
 from rtx.action_tokenization import RTX1ActionTokenizer
 from absl import app, flags, logging
+
+from . import rtx2_example
 
 REGISTRY = {
     "rtx1": {
@@ -29,6 +31,7 @@ flags.DEFINE_boolean("use_attn_text_conditioner", True, "Whether to use attentio
 flags.DEFINE_enum("model", "rtx1", REGISTRY.keys(), "Model to choose from.")
 flags.DEFINE_enum("mode", "inference", MODES, "Experiment mode to run.")
 
+
 def main(_):
     if FLAGS.mode == "inference":
         EXAMPLE_SCRIPTS[FLAGS.model].run()
@@ -40,6 +43,7 @@ def main(_):
             vit_config= FilmViTConfig(pretrained= FLAGS.pretrained_vit))
         action_tokenizer = REGISTRY[FLAGS.model]['action_tokenizer']()
         train_example.run(model, action_tokenizer)
+
 
 if __name__ == "__main__":
     app.run(main)

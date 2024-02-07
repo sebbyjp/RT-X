@@ -1,6 +1,5 @@
 from functools import partial
 import torch
-import torch.nn.functional as F
 from torch import nn, einsum, Tensor
 from typing import List, Optional, Callable, Tuple
 from beartype import beartype
@@ -40,9 +39,7 @@ def unpack_one(x, ps, pattern):
 # sinusoidal positions
 
 
-def posemb_sincos_1d(
-    seq, dim, temperature=10000, device=None, dtype=torch.float32
-):
+def posemb_sincos_1d(seq, dim, temperature=10000, device=None, dtype=torch.float32):
     n = torch.arange(seq, device=device)
     omega = torch.arange(dim // 2, device=device) / (dim // 2 - 1)
     omega = 1.0 / (temperature**omega)
@@ -64,21 +61,11 @@ class Residual(nn.Module):
         return self.fn(x) + x
 
 
-class LayerNorm(nn.Module):
-    def __init__(self, dim):
-        super().__init__()
-        self.gamma = nn.Parameter(torch.ones(dim))
-        self.register_buffer("beta", torch.zeros(dim))
-
-    def forward(self, x):
-        return F.layer_norm(x, x.shape[-1:], self.gamma, self.beta)
-
-
 class FeedForward(nn.Module):
     def __init__(self, dim, mult=4, dropout=0.0):
         super().__init__()
         inner_dim = int(dim * mult)
-        self.norm = LayerNorm(dim)
+        self.norm = nn.LayerNorm(dim)
 
         self.net = nn.Sequential(
             nn.Linear(dim, inner_dim),
@@ -143,9 +130,7 @@ class Dropsample(nn.Module):
             return x
 
         keep_mask = (
-            torch.FloatTensor(
-                (x.shape[0], 1, 1, 1), device=device
-            ).uniform_()
+            torch.FloatTensor((x.shape[0], 1, 1, 1), device=device).uniform_()
             > self.prob
         )
         return x * keep_mask / (1 - self.prob)
@@ -198,16 +183,14 @@ class Attention(nn.Module):
             dim % dim_head
         ) == 0, "dimension should be divisible by dimension per head"
 
-        self.norm = LayerNorm(dim)
+        self.norm = nn.LayerNorm(dim)
 
         self.heads = dim // dim_head
         self.scale = dim_head**-0.5
 
         self.to_qkv = nn.Linear(dim, dim * 3, bias=False)
 
-        self.attend = nn.Sequential(
-            nn.Softmax(dim=-1), nn.Dropout(dropout)
-        )
+        self.attend = nn.Sequential(nn.Softmax(dim=-1), nn.Dropout(dropout))
 
         self.to_out = nn.Sequential(
             nn.Linear(dim, dim, bias=False), nn.Dropout(dropout)
@@ -215,9 +198,7 @@ class Attention(nn.Module):
 
         # relative positional bias
 
-        self.rel_pos_bias = nn.Embedding(
-            (2 * window_size - 1) ** 2, self.heads
-        )
+        self.rel_pos_bias = nn.Embedding((2 * window_size - 1) ** 2, self.heads)
 
         pos = torch.arange(window_size)
         grid = torch.stack(torch.meshgrid(pos, pos, indexing="ij"))
@@ -226,13 +207,9 @@ class Attention(nn.Module):
             grid, "j ... -> 1 j ..."
         )
         rel_pos += window_size - 1
-        rel_pos_indices = (
-            rel_pos * torch.tensor([2 * window_size - 1, 1])
-        ).sum(dim=-1)
+        rel_pos_indices = (rel_pos * torch.tensor([2 * window_size - 1, 1])).sum(dim=-1)
 
-        self.register_buffer(
-            "rel_pos_indices", rel_pos_indices, persistent=False
-        )
+        self.register_buffer("rel_pos_indices", rel_pos_indices, persistent=False)
 
     def forward(self, x):
         (
@@ -300,9 +277,7 @@ class Attention(nn.Module):
         # combine heads out
 
         out = self.to_out(out)
-        return rearrange(
-            out, "(b x y) ... -> b x y ...", x=height, y=width
-        )
+        return rearrange(out, "(b x y) ... -> b x y ...", x=height, y=width)
 
 
 class FilmViTConfig:
@@ -380,9 +355,7 @@ class FilmViTConfig:
         self.dropout = dropout
         self.norm_layer = norm_layer
         if self.norm_layer is None:
-            self.norm_layer = partial(
-                nn.BatchNorm2d, eps=1e-3, momentum=0.99
-            )
+            self.norm_layer = partial(nn.BatchNorm2d, eps=1e-3, momentum=0.99)
         self.activation_layer = activation_layer
         self.pretrained = pretrained
         self.stochastic_depth_prob = stochastic_depth_prob
@@ -400,18 +373,12 @@ class FilmMaxVit(nn.Module):
         )
 
         # List of number of input and output channels for each ViT block.
-        in_channels: List = [
-            config.stem_channels_in
-        ] + config.block_channel_ins[:-1]
+        in_channels: List = [config.stem_channels_in] + config.block_channel_ins[:-1]
         out_channels: List = config.block_channel_ins
 
         # Condition after each layer starting with the input to the stem block.
-        self.cond_hidden_dims = [
-            config.stem_channels_in
-        ]  # Used by FilmTextConditioner
-        for block_in_channels, block_layers in zip(
-            out_channels, config.block_layers
-        ):
+        self.cond_hidden_dims = [config.stem_channels_in]  # Used by FilmTextConditioner
+        for block_in_channels, block_layers in zip(out_channels, config.block_layers):
             for _ in range(block_layers):
                 self.cond_hidden_dims.append(block_in_channels)
         self.cond_hidden_dims = self.cond_hidden_dims[
@@ -455,11 +422,7 @@ class FilmMaxVit(nn.Module):
             block_num_layers,
         ) in zip(in_channels, out_channels, config.block_layers):
             for i in range(block_num_layers):
-                layer_channels_in = (
-                    block_channels_in
-                    if i == 0
-                    else block_channels_out
-                )
+                layer_channels_in = block_channels_in if i == 0 else block_channels_out
 
                 layer = nn.Sequential(
                     MBConv(
@@ -517,7 +480,7 @@ class FilmMaxVit(nn.Module):
 
         self.mlp_head = nn.Sequential(
             Reduce("b d h w -> b d", "mean"),
-            LayerNorm(self.embed_dim),
+            nn.LayerNorm(self.embed_dim),
             nn.Linear(self.embed_dim, config.num_classes, bias=False),
         )
 
@@ -570,10 +533,8 @@ class TransformerAttention(nn.Module):
 
         dim_context = default(dim_context, dim)
 
-        self.norm = LayerNorm(dim)
-        self.context_norm = (
-            LayerNorm(dim_context) if norm_context else nn.Identity()
-        )
+        self.norm = nn.LayerNorm(dim)
+        self.context_norm = nn.LayerNorm(dim_context) if norm_context else nn.Identity()
 
         self.attn_dropout = nn.Dropout(dropout)
 
@@ -617,9 +578,7 @@ class TransformerAttention(nn.Module):
             sim = sim + attn_bias
 
         if exists(attn_mask):
-            sim = sim.masked_fill(
-                ~attn_mask, -torch.finfo(sim.dtype).max
-            )
+            sim = sim.masked_fill(~attn_mask, -torch.finfo(sim.dtype).max)
 
         if exists(mask):
             mask = rearrange(mask, "b j -> b 1 1 j")
@@ -627,12 +586,10 @@ class TransformerAttention(nn.Module):
 
         if self.causal:
             i, j = sim.shape[-2:]
-            causal_mask = torch.ones(
-                (i, j), dtype=torch.bool, device=x.device
-            ).triu(j - i + 1)
-            sim = sim.masked_fill(
-                causal_mask, -torch.finfo(sim.dtype).max
+            causal_mask = torch.ones((i, j), dtype=torch.bool, device=x.device).triu(
+                j - i + 1
             )
+            sim = sim.masked_fill(causal_mask, -torch.finfo(sim.dtype).max)
 
         attn = sim.softmax(dim=-1)
         attn = self.attn_dropout(attn)
@@ -656,6 +613,8 @@ class Transformer(nn.Module):
     ):
         super().__init__()
         self.layers = nn.ModuleList([])
+        self.norm = nn.LayerNorm(dim)
+
         for _ in range(depth):
             self.layers.append(
                 nn.ModuleList(
@@ -675,17 +634,17 @@ class Transformer(nn.Module):
         attn_mask=None,
     ):
         cond_fns = iter(default(cond_fns, []))
-
+        x = self.norm(x)
         for attn, ff in self.layers:
             x = (
                 attn(
-                    x,
+                    self.norm(x),
                     attn_mask=attn_mask,
                     cond_fn=next(cond_fns, None),
                 )
                 + x
             )
-            x = ff(x, cond_fn=next(cond_fns, None)) + x
+            x = ff(self.norm(x), cond_fn=next(cond_fns, None)) + x
         return x
 
 
@@ -698,9 +657,7 @@ class TokenLearner(nn.Module):
     using the 1.1 version with the MLP (2 dense layers with gelu) for generating attention map
     """
 
-    def __init__(
-        self, *, dim, ff_mult=2, num_output_tokens=8, num_layers=2
-    ):
+    def __init__(self, *, dim, ff_mult=2, num_output_tokens=8, num_layers=2):
         super().__init__()
         inner_dim = dim * ff_mult * num_output_tokens
 
@@ -723,15 +680,11 @@ class TokenLearner(nn.Module):
 
     def forward(self, x):
         x, ps = pack_one(x, "* c h w")
-        x = repeat(
-            x, "b c h w -> b (g c) h w", g=self.num_output_tokens
-        )
+        x = repeat(x, "b c h w -> b (g c) h w", g=self.num_output_tokens)
         attn = self.net(x)
 
         attn = rearrange(attn, "b g h w -> b 1 g h w")
-        x = rearrange(
-            x, "b (g c) h w -> b c g h w", g=self.num_output_tokens
-        )
+        x = rearrange(x, "b (g c) h w -> b c g h w", g=self.num_output_tokens)
 
         x = reduce(x * attn, "b c g h w -> b c g", "mean")
         x = unpack_one(x, ps, "* c n")
@@ -776,9 +729,7 @@ class RT1Config:
         self.dim_head = dim_head
         self.token_learner_ff_mult = token_learner_ff_mult
         self.token_learner_num_layers = token_learner_num_layers
-        self.token_learner_num_output_tokens = (
-            token_learner_num_output_tokens
-        )
+        self.token_learner_num_output_tokens = token_learner_num_output_tokens
         self.cond_drop_prob = cond_drop_prob
         self.use_attn_conditioner = use_attn_conditioner
 
@@ -821,9 +772,7 @@ class RT1(nn.Module):
             num_layers=config.token_learner_num_layers,
         )
 
-        self.num_learned_tokens = (
-            config.token_learner_num_output_tokens
-        )
+        self.num_learned_tokens = config.token_learner_num_output_tokens
 
         self.transformer_depth = config.depth
 
@@ -834,16 +783,16 @@ class RT1(nn.Module):
             depth=config.depth,
         )
 
+        self.norm = nn.LayerNorm(config.embed_dim)
+
         self.cond_drop_prob = config.cond_drop_prob
 
         self.to_logits = nn.Sequential(
-            LayerNorm(vit.embed_dim),
-            nn.Linear(
-                vit.embed_dim, config.num_actions * config.action_bins
-            ),
+            nn.LayerNorm(vit.embed_dim),
+            nn.Linear(vit.embed_dim, config.num_actions * config.action_bins),
             Rearrange("... (a b) -> ... a b", b=config.action_bins),
         )
-    
+
     def embed_texts(self, texts: List[str]):
         return self.conditioner.embed_texts(texts)
 
@@ -853,11 +802,11 @@ class RT1(nn.Module):
         video,
         texts: Optional[List[str]] = None,
         text_embeds: Optional[Tensor] = None,
-        cond_drop_prob = 0.
+        cond_drop_prob=0.0,
     ):
         assert exists(texts) ^ exists(text_embeds)
-        cond_kwargs = dict(texts = texts, text_embeds = text_embeds)
-        
+        cond_kwargs = dict(texts=texts, text_embeds=text_embeds)
+
         depth = self.transformer_depth
         cond_drop_prob = default(cond_drop_prob, self.cond_drop_prob)
 
@@ -889,15 +838,13 @@ class RT1(nn.Module):
         tokens = unpack_one(tokens, packed_shape, "* c h w")
         learned_tokens = self.token_learner(tokens)
 
-        learned_tokens = rearrange(
-            learned_tokens, "b f c n -> b (f n) c"
-        )
+        learned_tokens = rearrange(learned_tokens, "b f c n -> b (f n) c")
 
         # causal attention mask
 
-        attn_mask = torch.ones(
-            (frames, frames), dtype=torch.bool, device=device
-        ).triu(1)
+        attn_mask = torch.ones((frames, frames), dtype=torch.bool, device=device).triu(
+            1
+        )
         attn_mask = repeat(
             attn_mask,
             "i j -> (i r1) (j r2)",
@@ -926,9 +873,7 @@ class RT1(nn.Module):
             attn_mask=~attn_mask,
         )
 
-        pooled = reduce(
-            attended_tokens, "b (f n) d -> b f d", "mean", f=frames
-        )
+        pooled = reduce(attended_tokens, "b (f n) d -> b f d", "mean", f=frames)
 
         logits = self.to_logits(pooled)
         return logits
