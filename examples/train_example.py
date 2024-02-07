@@ -96,7 +96,7 @@ def eval(model: torch.nn.Module,
             eval_acc += (
                 out_preds == ground_truth).float().mean().detach().to('cpu')
 
-            future_out_one_hot = nn.functional.one_hot(out_preds[:, -1, :],
+            future_out_one_hot = nn.functional.one_hot(out_preds,
                                                        256).to(device).float()
             # future_gt = ground_truth[:, -1, :]
             future_gt_raw = sample['action'][:, -1, :]
@@ -171,19 +171,19 @@ def eval(model: torch.nn.Module,
                         np.array(255 * video[0, :, :, :, :].detach().to(
                             'cpu')).astype(np.uint8),
                         caption=
-                        f" gt: {str(ground_truth[0,-1,:])}, pred: {str(out_preds[0,-1,:])}"
+                        f" gt: {str(ground_truth[0,:])}, pred: {str(out_preds[0,:])}"
                     ),
                 # 'instruction': instructions[0],
                 'train_step': step_num
             })
             wandb.log({
-                'x_gt': ground_truth[0, -1, 8],
-                'y_gt': ground_truth[0, -1, 9],
-                'z_gt': ground_truth[0, -1, 10],
-                'roll_gt': ground_truth[0, -1, 4],
-                'pitch_gt': ground_truth[0, -1, 5],
-                'yaw_gt': ground_truth[0, -1, 6],
-                'grasp_gt': ground_truth[0, -1, 3],
+                'x_gt': ground_truth[0,  8],
+                'y_gt': ground_truth[0,  9],
+                'z_gt': ground_truth[0,  10],
+                'roll_gt': ground_truth[0,  4],
+                'pitch_gt': ground_truth[0,  5],
+                'yaw_gt': ground_truth[0,  6],
+                'grasp_gt': ground_truth[0,  3],
                 'train_step': step_num
             })
             wandb.log({
@@ -477,6 +477,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     if is_main_process():
         print('\n\n Training model with {} parameters'.format(
             count_parameters(model)))
+        wandb.watch(model, log_freq=100)
 
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         if is_main_process():
