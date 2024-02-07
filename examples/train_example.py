@@ -482,7 +482,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'Using {torch.cuda.device_count()} GPUs')
         # Convert BatchNorm to SyncBatchNorm.
-        # model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
+        model = nn.SyncBatchNorm.convert_sync_batchnorm(model)
 
         model = DDP(model,
                     device_ids=[get_rank()],
@@ -523,6 +523,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         if is_main_process():
             print(f'epoch {epoch}')
             wandb.log({'epoch': epoch})
+        dist.barrier()
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
 
             # if step_num % 10000 == 0:
