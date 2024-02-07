@@ -296,6 +296,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             print(f'epoch {epoch}')
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
+            if (i+1) == 500:
+                break
             if step_num % 500 == 0:
                 if is_main_process():
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines, conditioning_scale)
@@ -304,20 +306,20 @@ def run(model: torch.nn.Module, action_tokenizer):
 
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)[:,-1,:]
+            ground_truth = action_tokenizer.tokenize_xyzrpyg(sample['action'], device)
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            future_outs = model.train_step(video, instructions)[:,-1,:]
-            future_out_preds = torch.max(future_outs,-1)[1]
+            outs = model.train_step(video, instructions)
+            out_preds = torch.max(outs,-1)[1]
             
 
-            loss = criterion(rearrange(future_outs, 'b a bins -> (b a) bins'), rearrange(ground_truth, 'b a -> (b a)' ))
+            loss = criterion(rearrange(outs, 'b f a bins -> (b f a) bins'), rearrange(ground_truth, 'b f a -> (b f a)' ))
             loss.backward()
             optimizer.step()
-            acc = (future_out_preds == ground_truth).float().mean().detach().to('cpu')
+            acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
                 writer.add_scalar('loss', float(loss.to('cpu').detach().numpy()), step_num)
