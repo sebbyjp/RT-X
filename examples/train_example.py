@@ -724,7 +724,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                     output_actions['world_vector'], 
                     output_actions['rotation_delta'], 
                     output_actions['gripper_closedness_action']], 1)
-                out_preds = action_tokenizer.tokenize_xyzrpyg(out_preds, device)
+                out_preds = action_tokenizer.tokenize_xyzrpyg(out_preds.unsqueeze(1), device).squeeze(1)
                 acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
