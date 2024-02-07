@@ -173,9 +173,10 @@ def eval(model: torch.nn.Module,
                                         'cpu') * 255).astype(np.uint8),
                                     caption=
                                     f" gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"
-                                )
-                        },
-                        step=step_num)
+                                ),
+                            'instruction': instructions[0],
+                            'train_step': step_num
+                        })
                     wandb.log({
                         'x_gt': ground_truth[0, i, 8],
                         'y_gt': ground_truth[0, i, 9],
@@ -183,8 +184,9 @@ def eval(model: torch.nn.Module,
                         'roll_gt': ground_truth[0, i, 4],
                         'pitch_gt': ground_truth[0, i, 5],
                         'yaw_gt': ground_truth[0, i, 6],
-                        'grasp_gt': ground_truth[0, i, 3]
-                    }, step=step_num)
+                        'grasp_gt': ground_truth[0, i, 3],
+                        'train_step': step_num
+                    })
                     wandb.log({
                         'x_pred': out_preds[0, i, 8],
                         'y_pred': out_preds[0, i, 9],
@@ -192,8 +194,9 @@ def eval(model: torch.nn.Module,
                         'roll_pred': out_preds[0, i, 4],
                         'pitch_pred': out_preds[0, i, 5],
                         'yaw_pred': out_preds[0, i, 6],
-                        'grasp_pred': out_preds[0, i, 3]
-                    }, step=step_num)
+                        'grasp_pred': out_preds[0, i, 3],
+                        'train_step': step_num
+                    })
                     wandb.log({
                         'x_gt_raw': sample['action'][0, i, 0],
                         'y_gt_raw': sample['action'][0, i, 1],
@@ -201,8 +204,9 @@ def eval(model: torch.nn.Module,
                         'roll_gt_raw': sample['action'][0, i, 3],
                         'pitch_gt_raw': sample['action'][0, i, 4],
                         'yaw_gt_raw': sample['action'][0, i, 5],
-                        'grasp_gt_raw': sample['action'][0, i, 6]
-                    }, step=step_num)
+                        'grasp_gt_raw': sample['action'][0, i, 6],
+                        'train_step': step_num
+                    })
 
             video = torch.permute(video, (0, 1, 3, 4, 2))
             for baseline in FLAGS.baselines:
@@ -312,9 +316,10 @@ def eval(model: torch.nn.Module,
                                         'roll_' + baseline_name: out[4],
                                         'pitch_' + baseline_name: out[5],
                                         'yaw_' + baseline_name: out[6],
-                                        'grasp_' + baseline_name: out[3]
-                                    },
-                                    step=step_num)
+                                        'grasp_' + baseline_name: out[3],
+                                        'train_step': step_num
+                                    })
+               
                                 wandb.log(
                                     {
                                         'x_raw_' + baseline_name:
@@ -330,9 +335,9 @@ def eval(model: torch.nn.Module,
                                         'yaw_raw_' + baseline_name:
                                             out_raw['rotation_delta'][2],
                                         'grasp_raw_' + baseline_name:
-                                            out_raw['gripper_closedness_action']
-                                    },
-                                    step=step_num)
+                                            out_raw['gripper_closedness_action'],
+                                        'train_step': step_num
+                                    })
 
                         # print(f' \n\n   {baseline} tokenized',out)
 
@@ -359,8 +364,8 @@ def eval(model: torch.nn.Module,
         'eval_loss': eval_loss / eval_steps,
         'future_eval_loss': future_eval_loss / eval_steps,
         'eval_acc': eval_acc / eval_steps,
-        'future_eval_acc': future_eval_acc / eval_steps
-    }, step=step_num)
+        'future_eval_acc': future_eval_acc / eval_steps,
+        'train_step': step_num})
 
     for baseline in FLAGS.baselines:
         baseline_name = baseline.replace('/', '_').replace('-', '_')
@@ -374,11 +379,13 @@ def eval(model: torch.nn.Module,
             f"{baseline_name}_future_loss":
                 baselines[baseline]['loss'] / eval_steps,
             f"{baseline_name}_future_acc":
-                baselines[baseline]['acc'] / eval_steps
+                baselines[baseline]['acc'] / eval_steps,
+            'train_step': step_num 
         })
         wandb.log({
             f"{baseline_name}_future_mse":
-                baselines[baseline]['mse'] / eval_steps
+                baselines[baseline]['mse'] / eval_steps,
+            'train_step': step_num
         })
 
     writer.flush()
@@ -555,14 +562,11 @@ def run(model: torch.nn.Module, action_tokenizer):
                 wandb.log(
                     {
                         'loss': float(loss.to('cpu').detach().numpy()),
-                        'acc': float(acc.to('cpu').detach().numpy())
-                    },
-                    step=step_num)
-                wandb.log({'lr': optimizer.param_groups[0]['lr']},
-                          step=step_num)
-                wandb.log({'step': step_num}, step=step_num)
-                wandb.log({'batch_idx': i}, step=step_num)
-
+                        'acc': float(acc.to('cpu').detach().numpy()),
+                        'lr': optimizer.param_groups[0]['lr'],
+                        'batch_idx': i,
+                        'train_step': step_num
+                    })
             with warmup_scheduler.dampening():
                 if warmup_scheduler.last_step + 1 >= warmup_period:
                     lr_scheduler.step()
