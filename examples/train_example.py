@@ -683,7 +683,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
 
             model.module.set_actions(dict_to_device({
-                'terminate_episode': torch.zeros((4, 1), dtype=torch.long),
+                'terminate_episode': torch.ones((4, 1), dtype=torch.long),
                 'world_vector':     sample['action'][:,3],
                 'rotation_delta':   sample['action'][:,3:],
                 'gripper_closedness_action': sample['action'][:,6]
