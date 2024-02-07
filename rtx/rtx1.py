@@ -424,7 +424,7 @@ class FilmMaxVit(nn.Module):
 
             self._vit = maxvit_t(weights=MaxVit_T_Weights.DEFAULT)
             self.conv_stem = self._vit.stem
-            self.mlp_head = self._vit.classifier
+            # self.mlp_head = self._vit.classifier
             self.layers = nn.ModuleList([])
             for block in self._vit.blocks:
                 for layer in block.layers:
@@ -545,7 +545,7 @@ class FilmMaxVit(nn.Module):
         if return_embeddings:
             return x
 
-        # return self.mlp_head(x)
+        return self.mlp_head(x)
 
 
 # attention
@@ -746,9 +746,9 @@ class RT1Config:
         self,
         num_actions=11,
         action_bins=256,
-        depth=3,
-        heads=4,
-        dim_head=16,
+        depth=6,
+        heads=8,
+        dim_head=64,
         token_learner_ff_mult=2,
         token_learner_num_layers=2,
         token_learner_num_output_tokens=8,
