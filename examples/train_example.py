@@ -455,10 +455,11 @@ def embed_text(input: list[str] | str, batch_size: int = 1) -> tf.Tensor:
     Returns:
         tf.Tensor: A tensor of shape (batch_size, 512).
     """
-    if isinstance(input, str):
-        input = input.lstrip(' ').rstrip(' ')
-        input = np.tile(np.array(input), (batch_size,))
-    return torch.as_tensor(TEXT_ENCODER(input).numpy())
+    with torch.no_grad():
+        if isinstance(input, str):
+            input = input.lstrip(' ').rstrip(' ')
+            input = np.tile(np.array(input), (batch_size,))
+        return torch.as_tensor(TEXT_ENCODER(input).numpy())
     # return torch.as_tensor(tf.reshape(
     #     tf.convert_to_tensor(embedded, dtype=tf.float32), (batch_size, 512)
     # ).numpy())
@@ -612,9 +613,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     if FLAGS.freeze_vit:
         for param in model.vit.parameters():
             param.requires_grad = False
-    if is_main_process():
-        print('\n\n Training model with {} parameters'.format(
-            count_parameters(model)))
+    # if is_main_process():
+    #     print('\n\n Training model with {} parameters'.format(
+    #         count_parameters(model)))
 
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         if is_main_process():
@@ -625,12 +626,12 @@ def run(model: torch.nn.Module, action_tokenizer):
         model = DDP(model,
                     device_ids=[get_rank()],
                     output_device=get_rank(),
-                    find_unused_parameters=True)
+                    find_unused_parameters=False)
 
         # model.run = model.module.run
         # model.train_step = model.module.train_step
-        if is_main_process():
-            wandb.watch(model.module, log_freq=100)
+        # if is_main_process():
+        #     wandb.watch(model.module, log_freq=100)
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
@@ -697,7 +698,8 @@ def run(model: torch.nn.Module, action_tokenizer):
                     batch_size=video.shape[0],
                 )
             )
-            output_actions, network_state = model(
+            optimizer.zero_grad()
+            output_actions, network_state = model.module(
                 dict_to_device(obs, device),
                 dict_to_device(network_state, device),
             )
