@@ -718,7 +718,14 @@ def run(model: torch.nn.Module, action_tokenizer):
             #                  rearrange(ground_truth, 'b a -> (b a)'))
             loss.backward()
             optimizer.step()
-            # acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
+         
+            with torch.no_grad():
+                out_preds = torch.cat([
+                    output_actions['world_vector'], 
+                    output_actions['rotation_delta'], 
+                    output_actions['gripper_closedness_action']], 1)
+                out_preds = action_tokenizer.tokenize_xyzrpyg(out_preds, device)
+                acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
                 writer.add_scalar('loss',
@@ -729,10 +736,10 @@ def run(model: torch.nn.Module, action_tokenizer):
                 wandb.log(
                     {
                         'loss': float(loss.to('cpu').detach().numpy()),
-                        # 'acc': float(acc.to('cpu').detach().numpy()),
+                        'acc': float(acc.to('cpu').detach().numpy()),
                         'lr': optimizer.param_groups[0]['lr'],
-                        # 'x_pred_train': out_preds[0, 8],
-                        # 'x_gt_train': ground_truth[0, 8],
+                        'x_pred_train': out_preds[0, 8],
+                        'x_gt_train': ground_truth[0, 8],
                         # 'instruction_train': instructions[0],
                         'batch_idx': i,
                         'train_step': step_num
