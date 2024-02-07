@@ -684,6 +684,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # print('video', video.shape)
             # print('nle', obs['natural_language_embedding'].shape)
             # exit()
+            optimizer.zero_grad()
             model.module.set_actions(dict_to_device({
                 'terminate_episode': torch.ones((video.shape[0], video.shape[1]), dtype=torch.long),
                 'world_vector':     sample['action'][:,:,:3],
@@ -705,7 +706,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             loss = model.module.get_actor_loss().mean()
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.zero_grad()
+
             # with torch.cuda.amp.autocast():
 
             # outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
