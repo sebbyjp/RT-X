@@ -81,7 +81,7 @@ def eval(model: torch.nn.Module,
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
             if (eval_steps == 1):
                 break
-            video = rearrange(sample['observation']['image_primary'] / 255.0,
+            video = rearrange(sample['observation']['image_primary'] * 1.0,
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
@@ -170,11 +170,11 @@ def eval(model: torch.nn.Module,
                             'image_frames':
                                 wandb.Video(
                                     np.array(video[0, :, :, :, :].detach().to(
-                                        'cpu') * 255).astype(np.uint8),
+                                        'cpu')).astype(np.uint8),
                                     caption=
                                     f" gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"
                                 ),
-                            'instruction': instructions[0],
+                            # 'instruction': instructions[0],
                             'train_step': step_num
                         })
                     wandb.log({
@@ -219,8 +219,7 @@ def eval(model: torch.nn.Module,
                                                 device='cpu')
                 for i in range(batch_size):
                     for j in range(n_frames):
-                        out_raw = baseline_model(image=(video[i, j, :, :, :] *
-                                                        255.0).cpu().numpy(),
+                        out_raw = baseline_model(image=(video[i, j, :, :, :] ).cpu().numpy(),
                                                  instruction=instructions[i],
                                                  save=False)
                         batch_actions_raw[i, :] = torch.tensor([
@@ -534,7 +533,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             if i == 250:
                 break
 
-            video = rearrange(sample['observation']['image_primary'] / 255.0,
+            video = rearrange(sample['observation']['image_primary'] * 1.0,
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
