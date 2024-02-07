@@ -746,9 +746,9 @@ class RT1Config:
         self,
         num_actions=11,
         action_bins=256,
-        depth=3,
-        heads=4,
-        dim_head=16,
+        depth=6,
+        heads=8,
+        dim_head=64,
         token_learner_ff_mult=2,
         token_learner_num_layers=2,
         token_learner_num_output_tokens=8,
@@ -811,6 +811,7 @@ class RT1(nn.Module):
                 *((False,) * config.depth * 2),
             ),
             cond_drop_prob=config.cond_drop_prob,
+            flash=False,
             **conditioner_kwargs,
         )
 
