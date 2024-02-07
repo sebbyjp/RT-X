@@ -566,7 +566,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         "resume": False,
         "resume_from_checkpoint": "",
         "predicting_next_ts": True,
-        "world_size": 1,
+        "world_size": 4,
         "dist_url": "env://",
         "val_interval": 1,
         "num_val_threads": 25,
@@ -591,10 +591,10 @@ def run(model: torch.nn.Module, action_tokenizer):
     # Modify network configuration based on specific settings
     network_configs["time_sequence_length"] = args["time_sequence_length"]
     network_configs["num_encoders"] = len(args["cam_view"])
-    network_configs["token_embedding_size"] = network_configs[
-        "token_embedding_size_per_image"
-    ] * len(args["cam_view"])
-    del network_configs["token_embedding_size_per_image"]
+    # network_configs["token_embedding_size"] = network_configs[
+    #     "token_embedding_size_per_image"
+    # ] * len(args["cam_view"])
+    # del network_configs["token_embedding_size_per_image"]
     network_configs["using_proprioception"] = args["using_proprioception"]
     network_configs["input_tensor_space"] = state_space_list()[0]
     network_configs["output_tensor_space"] = action_space
@@ -674,7 +674,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # if i == 250:
             #     break
 
-            video = rearrange(sample['observation']['image_primary'], 'b f h w c -> b f c h w').to(device)
+            video = rearrange(sample['observation']['image_primary'], 'b f h w c -> b f c h w').to(device) / 255.
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)[:,-1,:]
