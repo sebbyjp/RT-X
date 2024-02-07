@@ -630,8 +630,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
         # model.run = model.module.run
         # model.train_step = model.module.train_step
-        # if is_main_process():
-        #     wandb.watch(model.module, log_freq=100)
+        if is_main_process():
+            wandb.watch(model.module, log_freq=100)
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
