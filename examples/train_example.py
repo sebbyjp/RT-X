@@ -81,10 +81,8 @@ def eval(model: torch.nn.Module,
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
             if (eval_steps == 1):
                 break
-            print('image: ', sample['observation']['image_primary'])
-            exit()
             video = rearrange(sample['observation']['image_primary'] / 255.0,
-                              'b f h w c -> b f c h w').to(device) / 255.0
+                              'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)
@@ -530,7 +528,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                 break
 
             video = rearrange(sample['observation']['image_primary'] / 255.0,
-                              'b f h w c -> b f c h w').to(device) / 255.0
+                              'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)
