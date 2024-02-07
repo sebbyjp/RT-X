@@ -310,11 +310,11 @@ def run(model: torch.nn.Module, action_tokenizer):
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            outs = model.train_step(video, instructions)
-            future_out_preds = torch.max(outs,-1)[1][:,-1,:]
+            future_outs = model.train_step(video, instructions)[:,-1,:]
+            future_out_preds = torch.max(future_outs,-1)[1]
             
 
-            loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'), rearrange(ground_truth, 'b a -> (b a)' ))
+            loss = criterion(rearrange(future_outs, 'b a bins -> (b a) bins'), rearrange(ground_truth, 'b a -> (b a)' ))
             loss.backward()
             optimizer.step()
             acc = (future_out_preds == ground_truth).float().mean().detach().to('cpu')
