@@ -561,7 +561,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         "log_dir": "logs",
         "time_sequence_length": 6,
         "lr": 0.0001,
-        "batch_size": 2,
+        "batch_size": FLAGS.batch_size,
         "epochs": 50,
         "resume": False,
         "resume_from_checkpoint": "",
