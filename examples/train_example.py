@@ -19,7 +19,7 @@ from rtx.train.dist import init_distributed, is_main_process, get_rank, get_worl
 import wandb
 import numpy as np
 
-# tf.config.set_visible_devices([], "GPU")
+tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
 
