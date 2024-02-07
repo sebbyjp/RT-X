@@ -123,7 +123,7 @@ class TorchRLDSDataset(IterableDataset):
 
 
 
-def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True, data_augmentation=True, shuffle_buffer_size=500000) -> DLataset:
+def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir: str = "gs://gresearch/robotics", train: bool = True, data_augmentation=True, shuffle_buffer_size=10000) -> DLataset:
 
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
@@ -165,10 +165,10 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
             resize_size=dict(
                 primary=(224, 224),
             ),
-            num_parallel_calls=200,
+            num_parallel_calls=100,
         ),
-        traj_transform_threads=24,
-        traj_read_threads=24,
+        traj_transform_threads=16,
+        traj_read_threads=16,
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
