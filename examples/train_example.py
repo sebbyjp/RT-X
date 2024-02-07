@@ -601,9 +601,9 @@ def run(model: torch.nn.Module, action_tokenizer):
     network_configs["output_tensor_space"] = action_space
     model = TransformerNetwork(**network_configs)
 
-    steps_per_epoch = len(train_data_loader)
+    # steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
-    num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
+    # num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
     t0 = 250 * 5
     lr_min = FLAGS.min_lr
     max_step = t0 * 50 + warmup_period
