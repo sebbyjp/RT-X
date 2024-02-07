@@ -1,10 +1,9 @@
-from examples import rtx1_example, train_example
+from examples import rtx1_example, train_example, rt2_example
 from rtx import RTX1, RTX2
 from rtx.rtx1 import FilmViTConfig, RT1Config
 from rtx.action_tokenization import RTX1ActionTokenizer
 from absl import app, flags, logging
 
-from . import rtx2_example
 
 REGISTRY = {
     "rtx1": {
