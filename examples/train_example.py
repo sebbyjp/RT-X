@@ -591,10 +591,10 @@ def run(model: torch.nn.Module, action_tokenizer):
     # Modify network configuration based on specific settings
     network_configs["time_sequence_length"] = args["time_sequence_length"]
     network_configs["num_encoders"] = len(args["cam_view"])
-    # network_configs["token_embedding_size"] = network_configs[
-    #     "token_embedding_size_per_image"
-    # ] * len(args["cam_view"])
-    # del network_configs["token_embedding_size_per_image"]
+    network_configs["token_embedding_size"] = network_configs[
+        "token_embedding_size_per_image"
+    ] * len(args["cam_view"])
+    del network_configs["token_embedding_size_per_image"]
     network_configs["using_proprioception"] = args["using_proprioception"]
     network_configs["input_tensor_space"] = state_space_list()[0]
     network_configs["output_tensor_space"] = action_space
@@ -681,7 +681,9 @@ def run(model: torch.nn.Module, action_tokenizer):
             
 
             obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
-
+            print('video', video.shape)
+            print('nle', obs['natural_language_embedding'].shape)
+            exit()
             model.module.set_actions(dict_to_device({
                 'terminate_episode': torch.ones((video.shape[0], 1), dtype=torch.long),
                 'world_vector':     sample['action'][:,-1,3],
