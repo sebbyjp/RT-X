@@ -674,58 +674,62 @@ def run(model: torch.nn.Module, action_tokenizer):
             #         dist.barrier()
             # if i == 250:
             #     break
+            with torch.backends.cuda.sdp_kernel(
+                enable_flash=False, 
+                enable_math=True, 
+                enable_mem_efficient=True
+            ):
+                video = rearrange(sample['observation']['image_primary'], 'b f h w c -> b f c h w').to(device) / 255.
+                instructions = sample['language_instruction']
+                ground_truth = action_tokenizer.tokenize_xyzrpyg(
+                    sample['action'], device)[:,-1,:]
+                
 
-            video = rearrange(sample['observation']['image_primary'], 'b f h w c -> b f c h w').to(device) / 255.
-            instructions = sample['language_instruction']
-            ground_truth = action_tokenizer.tokenize_xyzrpyg(
-                sample['action'], device)[:,-1,:]
-            
-
-            obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
-            # print('video', video.shape)
-            # print('nle', obs['natural_language_embedding'].shape)
-            # exit()
-            optimizer.zero_grad()
-            model.module.set_actions(dict_to_device({
-                'terminate_episode': torch.ones((video.shape[0], video.shape[1]), dtype=torch.long),
-                'world_vector':     sample['action'][:,:,:3],
-                'rotation_delta':   sample['action'][:,:,3:6],
-                'gripper_closedness_action': sample['action'][:,:,6:]
-            }, device))
-            network_state = np_to_tensor(
-                batched_space_sampler(
-                    model.module._state_space,
-                    batch_size=video.shape[0],
+                obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
+                # print('video', video.shape)
+                # print('nle', obs['natural_language_embedding'].shape)
+                # exit()
+                optimizer.zero_grad()
+                model.module.set_actions(dict_to_device({
+                    'terminate_episode': torch.ones((video.shape[0], video.shape[1]), dtype=torch.long),
+                    'world_vector':     sample['action'][:,:,:3],
+                    'rotation_delta':   sample['action'][:,:,3:6],
+                    'gripper_closedness_action': sample['action'][:,:,6:]
+                }, device))
+                network_state = np_to_tensor(
+                    batched_space_sampler(
+                        model.module._state_space,
+                        batch_size=video.shape[0],
+                    )
                 )
-            )
-            optimizer.zero_grad()
-            output_actions, network_state = model.module(
-                dict_to_device(obs, device),
-                dict_to_device(network_state, device),
-            )
+                optimizer.zero_grad()
+                output_actions, network_state = model.module(
+                    dict_to_device(obs, device),
+                    dict_to_device(network_state, device),
+                )
 
 
-            loss = model.module.get_actor_loss().mean()
+                loss = model.module.get_actor_loss().mean()
 
-            # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
-            # with torch.cuda.amp.autocast():
+                # with torch.cuda.amp.autocast():
 
-            # outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
-            # out_preds = torch.max(outs, -1)[1]
+                # outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
+                # out_preds = torch.max(outs, -1)[1]
 
-            # loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
-            #                  rearrange(ground_truth, 'b a -> (b a)'))
-            loss.backward()
-            optimizer.step()
+                # loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
+                #                  rearrange(ground_truth, 'b a -> (b a)'))
+                loss.backward()
+                optimizer.step()
          
-            with torch.no_grad():
-                out_preds = torch.cat([
-                    output_actions['world_vector'], 
-                    output_actions['rotation_delta'], 
-                    output_actions['gripper_closedness_action']], 1)
-                out_preds = action_tokenizer.tokenize_xyzrpyg(out_preds.unsqueeze(1), device).squeeze(1)
-                acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
+                with torch.no_grad():
+                    out_preds = torch.cat([
+                        output_actions['world_vector'], 
+                        output_actions['rotation_delta'], 
+                        output_actions['gripper_closedness_action']], 1)
+                    out_preds = action_tokenizer.tokenize_xyzrpyg(out_preds.unsqueeze(1), device).squeeze(1)
+                    acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
                 writer.add_scalar('loss',
