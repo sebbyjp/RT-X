@@ -459,9 +459,9 @@ def embed_text(input: list[str] | str, batch_size: int = 1) -> tf.Tensor:
         input = input.lstrip(' ').rstrip(' ')
         input = np.tile(np.array(input), (batch_size,))
     embedded = TEXT_ENCODER(input).numpy()[0]
-    return tf.reshape(
+    return torch.as_tensor(tf.reshape(
         tf.convert_to_tensor(embedded, dtype=tf.float32), (batch_size, 512)
-    )
+    ).numpy())
 
 def run(model: torch.nn.Module, action_tokenizer):
     """
