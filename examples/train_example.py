@@ -12,7 +12,7 @@ import pytorch_warmup as warmup
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 from torch.distributed.optim import ZeroRedundancyOptimizer
-from einops import rearrange
+from einops import rearrange, reduce
 from rtx.action_tokenization import RTX1ActionTokenizer
 from torch_lr_finder import LRFinder
 from rtx.train.dist import init_distributed, is_main_process, get_rank, get_world_size, is_dist_avail_and_initialized
@@ -169,7 +169,7 @@ def eval(model: torch.nn.Module,
                         {
                             'image_frames':
                                 wandb.Video(
-                                    np.array(video[0, :, :, :, :].detach().to(
+                                    np.array(255 * video[0, :, :, :, :].detach().to(
                                         'cpu')).astype(np.uint8),
                                     caption=
                                     f" gt: {str(ground_truth[0,i,:])}, pred: {str(out_preds[0,i,:])}"
@@ -205,7 +205,8 @@ def eval(model: torch.nn.Module,
                         'pitch_gt_raw': sample['action'][0, i, 4],
                         'yaw_gt_raw': sample['action'][0, i, 5],
                         'grasp_gt_raw': sample['action'][0, i, 6],
-                        'train_step': step_num
+                        'train_step': step_num,
+                        'instruction': instructions[0]
                     })
 
             video = rearrange(video, 'b f c h w -> b f h w c') * 255
@@ -537,17 +538,17 @@ def run(model: torch.nn.Module, action_tokenizer):
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
-                sample['action'], device)
+                sample['action'], device)[:,-1,:]
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            outs = model.train_step(video, instructions)
+            outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
             out_preds = torch.max(outs, -1)[1]
 
-            loss = criterion(rearrange(outs, 'b f a bins -> (b f a) bins'),
-                             rearrange(ground_truth, 'b f a -> (b f a)'))
+            loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
+                             rearrange(ground_truth, 'b a -> (b a)'))
             loss.backward()
             optimizer.step()
             acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
@@ -563,9 +564,9 @@ def run(model: torch.nn.Module, action_tokenizer):
                         'loss': float(loss.to('cpu').detach().numpy()),
                         'acc': float(acc.to('cpu').detach().numpy()),
                         'lr': optimizer.param_groups[0]['lr'],
-                        'x_pred_train': out_preds[0, -1, 8],
+                        'x_pred_train': out_preds[0, 8],
                         'x_gt_train': ground_truth[0, -1, 8],
-                        
+                        'instruction_train': instructions[0],
                         'batch_idx': i,
                         'train_step': step_num
                     })
