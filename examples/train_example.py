@@ -477,7 +477,6 @@ def run(model: torch.nn.Module, action_tokenizer):
     if is_main_process():
         print('\n\n Training model with {} parameters'.format(
             count_parameters(model)))
-        wandb.watch(model, log_freq=100)
 
     if torch.cuda.is_available() and torch.cuda.device_count() > 1:
         if is_main_process():
@@ -492,6 +491,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
         model.run = model.module.run
         model.train_step = model.module.train_step
+        if is_main_process():
+            wandb.watch(model.module, log_freq=100)
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
@@ -503,7 +504,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         optimizer = optim.AdamW(model.parameters(),
                                 lr=FLAGS.lr,
                                 weight_decay=FLAGS.weight_decay)
-    optimizer.zero_grad()
+    # optimizer.zero_grad()
     lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
         optimizer, T_0=t0, T_mult=2, eta_min=lr_min)
 
