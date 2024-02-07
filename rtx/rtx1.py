@@ -165,8 +165,7 @@ def MBConv(
 
     net = nn.Sequential(
         nn.Conv2d(dim_in, hidden_dim, 1),
-        LayerNorm(hidden_dim),
-        # nn.BatchNorm2d(hidden_dim),
+        nn.BatchNorm2d(hidden_dim),
         nn.GELU(),
         nn.Conv2d(
             hidden_dim,
@@ -176,12 +175,11 @@ def MBConv(
             padding=1,
             groups=hidden_dim,
         ),
-        LayerNorm(hidden_dim),
-        # nn.BatchNorm2d(hidden_dim),
+        nn.BatchNorm2d(hidden_dim),
         nn.GELU(),
         SqueezeExcitation(hidden_dim, shrinkage_rate=shrinkage_rate),
         nn.Conv2d(hidden_dim, dim_out, 1),
-        LayerNorm(dim_out),
+        nn.BatchNorm2d(dim_out),
     )
 
     if dim_in == dim_out and not downsample:
@@ -382,7 +380,9 @@ class FilmViTConfig:
         self.dropout = dropout
         self.norm_layer = norm_layer
         if self.norm_layer is None:
-            self.norm_layer = LayerNorm
+            self.norm_layer = partial(
+                nn.BatchNorm2d, eps=1e-3, momentum=0.99
+            )
         self.activation_layer = activation_layer
         self.pretrained = pretrained
         self.stochastic_depth_prob = stochastic_depth_prob
