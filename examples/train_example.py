@@ -296,13 +296,14 @@ def run(model: torch.nn.Module, action_tokenizer):
             print(f'epoch {epoch}')
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            if (i+1) == 500:
-                break
-            if step_num % 500 == 0:
+
+            if step_num % 250 == 0:
                 if is_main_process():
                     eval(model, action_tokenizer, writer, step_num, eval_data_loader, criterion, device, FLAGS.baselines, conditioning_scale)
                 if torch.cuda.device_count() > 1:
                     dist.barrier()
+            if i == 250:
+                break
 
             video = rearrange(sample['observation']['image_primary'] / 255.0, 'b f h w c -> b f c h w').to(device) / 255.0
             instructions = sample['language_instruction']
