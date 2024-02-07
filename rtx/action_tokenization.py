@@ -71,7 +71,7 @@ class RTX1ActionTokenizer:
             # normalized_action[k] = torch.concatenate(v).squeeze()
             normalized_action[k] = self.tokenize(torch.as_tensor(v), self.bounds[k][0], self.bounds[k][1])
 
-        tokens = torch.zeros(11, dtype=torch.long, device=device)
+        tokens = torch.ones(11, dtype=torch.long, device=device)
         # tokens[0:2] = normalized_action['base_displacement_vector']
         # tokens[2] = normalized_action['base_displacement_vertical_rotation']
         tokens[3] = normalized_action['gripper_closedness_action']
@@ -81,7 +81,7 @@ class RTX1ActionTokenizer:
         return tokens
 
     def tokenize_xyzrpyg(self, action: torch.Tensor, device='cpu') -> torch.Tensor:
-        tokens = torch.zeros((action.shape[0],action.shape[1],11), dtype=torch.long, device=device)
+        tokens = torch.ones((action.shape[0],action.shape[1],11), dtype=torch.long, device=device)
         tokens[:,:,3] = self.tokenize(action[:,:,6], self.bounds['gripper_closedness_action'][0], self.bounds['gripper_closedness_action'][1])
         tokens[:,:,4:7] = self.tokenize(action[:,:,3:6], self.bounds['rotation_delta'][0], self.bounds['rotation_delta'][1])
         tokens[:,:,8:] = self.tokenize(action[:,:,0:3], self.bounds['world_vector'][0], self.bounds['world_vector'][1])

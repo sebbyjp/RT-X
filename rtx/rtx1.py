@@ -165,7 +165,8 @@ def MBConv(
 
     net = nn.Sequential(
         nn.Conv2d(dim_in, hidden_dim, 1),
-        nn.BatchNorm2d(hidden_dim),
+        LayerNorm(hidden_dim),
+        # nn.BatchNorm2d(hidden_dim),
         nn.GELU(),
         nn.Conv2d(
             hidden_dim,
@@ -175,11 +176,12 @@ def MBConv(
             padding=1,
             groups=hidden_dim,
         ),
-        nn.BatchNorm2d(hidden_dim),
+        LayerNorm(hidden_dim),
+        # nn.BatchNorm2d(hidden_dim),
         nn.GELU(),
         SqueezeExcitation(hidden_dim, shrinkage_rate=shrinkage_rate),
         nn.Conv2d(hidden_dim, dim_out, 1),
-        nn.BatchNorm2d(dim_out),
+        LayerNorm(dim_out),
     )
 
     if dim_in == dim_out and not downsample:
@@ -380,9 +382,7 @@ class FilmViTConfig:
         self.dropout = dropout
         self.norm_layer = norm_layer
         if self.norm_layer is None:
-            self.norm_layer = partial(
-                nn.BatchNorm2d, eps=1e-3, momentum=0.99
-            )
+            self.norm_layer = LayerNorm
         self.activation_layer = activation_layer
         self.pretrained = pretrained
         self.stochastic_depth_prob = stochastic_depth_prob
@@ -515,11 +515,11 @@ class FilmMaxVit(nn.Module):
 
         # mlp head out
 
-        self.mlp_head = nn.Sequential(
-            Reduce("b d h w -> b d", "mean"),
-            LayerNorm(self.embed_dim),
-            nn.Linear(self.embed_dim, config.num_classes, bias=False),
-        )
+        # self.mlp_head = nn.Sequential(
+        #     Reduce("b d h w -> b d", "mean"),
+        #     LayerNorm(self.embed_dim),
+        #     nn.Linear(self.embed_dim, config.num_classes, bias=False),
+        # )
 
     @beartype
     def forward(
@@ -545,7 +545,7 @@ class FilmMaxVit(nn.Module):
         if return_embeddings:
             return x
 
-        return self.mlp_head(x)
+        # return self.mlp_head(x)
 
 
 # attention
@@ -746,9 +746,9 @@ class RT1Config:
         self,
         num_actions=11,
         action_bins=256,
-        depth=6,
-        heads=8,
-        dim_head=64,
+        depth=3,
+        heads=4,
+        dim_head=16,
         token_learner_ff_mult=2,
         token_learner_num_layers=2,
         token_learner_num_output_tokens=8,

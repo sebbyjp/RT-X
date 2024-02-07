@@ -451,16 +451,16 @@ def run(model: torch.nn.Module, action_tokenizer):
         # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
     eval_data_loader = None
-    if is_main_process():
-        eval_data_loader = DataLoader(
-            eval_ds,
-            batch_size=FLAGS.eval_batch_size,
-            num_workers=
-            0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
-            pin_memory=True,
-            # shuffle=True,
-            # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
-        )
+    # if is_main_process():
+    #     eval_data_loader = DataLoader(
+    #         eval_ds,
+    #         batch_size=FLAGS.eval_batch_size,
+    #         num_workers=
+    #         0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+    #         pin_memory=True,
+    #         # shuffle=True,
+    #         # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
+    #     )
 
     steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
