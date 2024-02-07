@@ -525,9 +525,7 @@ class FilmMaxVit(nn.Module):
     def forward(
         self,
         x,
-        texts: Optional[List[str]] = None,
         cond_fns: Optional[Tuple[Callable, ...]] = None,
-        cond_drop_prob=0.0,
         return_embeddings=False,
     ):
         x = self.conv_stem(x)

@@ -81,7 +81,7 @@ def eval(model: torch.nn.Module,
         for _, sample in tqdm.tqdm(enumerate(eval_data_loader)):
             if (eval_steps == 1):
                 break
-            video = rearrange(sample['observation']['image_primary'] * 1.0,
+            video = rearrange(sample['observation']['image_primary'] / 255.,
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
@@ -530,10 +530,10 @@ def run(model: torch.nn.Module, action_tokenizer):
                          conditioning_scale)
                 if torch.cuda.device_count() > 1:
                     dist.barrier()
-            if i == 250:
-                break
+            # if i == 250:
+            #     break
 
-            video = rearrange(sample['observation']['image_primary'] * 1.0,
+            video = rearrange(sample['observation']['image_primary'] / 255.0,
                               'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
