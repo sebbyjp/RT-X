@@ -5,6 +5,9 @@ import tqdm
 from torch.utils.data import DataLoader
 from rtx.data.dataset import get_oxe_dataset, TorchRLDSDataset
 from robo_transformers.inference_server import InferenceServer
+from gym import spaces
+from collections import OrderedDict
+import tensorflow_hub as hub
 from tensorboardX import SummaryWriter
 import os
 import tensorflow as tf
@@ -12,13 +15,20 @@ import pytorch_warmup as warmup
 from torch.nn.parallel import DistributedDataParallel as DDP
 import torch.distributed as dist
 from torch.distributed.optim import ZeroRedundancyOptimizer
-from einops import rearrange, reduce
+from einops import rearrange, reduce, repeat
 from rtx.action_tokenization import RTX1ActionTokenizer
 from torch_lr_finder import LRFinder
 from rtx.train.dist import init_distributed, is_main_process, get_rank, get_world_size, is_dist_avail_and_initialized
 import wandb
 import numpy as np
-
+import sys
+sys.path.append("./pytorch_rt1_with_trainer_and_tester")
+import util.misc as utils
+from IO_dataset_torch import build_dataset
+from maruya24_rt1.tokenizers.utils import batched_space_sampler, np_to_tensor
+from maruya24_rt1.transformer_network import TransformerNetwork
+from maruya24_rt1.transformer_network_test_set_up import state_space_list
+import copy
 tf.config.set_visible_devices([], "GPU")
 
 FLAGS = flags.FLAGS
@@ -42,6 +52,25 @@ flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
 flags.DEFINE_string("loss", "cse", "Loss function.")
 flags.DEFINE_bool("freeze_vit", False, "Freeze ViT weights.")
 
+def dict_to_device(dict_obj, device):
+    """
+    put all the values in the [dict_obj] to [device]
+    """
+    for k, v in dict_obj.items():
+        assert isinstance(v, torch.Tensor)
+        dict_obj[k] = v.to(device)
+    return dict_obj
+
+
+def retrieve_single_timestep(dict_obj, idx):
+    """
+    get all the values in the [dict_obj] at index [idx]
+    v[:, idx], all the values in the dictionary at second dimension needs to be same
+    """
+    dict_obj_return = copy.deepcopy(dict_obj)
+    for k, v in dict_obj.items():
+        dict_obj_return[k] = v[:, idx]
+    return dict_obj_return
 
 def eval(model: torch.nn.Module,
          action_tokenizer: RTX1ActionTokenizer,
@@ -393,6 +422,46 @@ def eval(model: torch.nn.Module,
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
+class LazyTFModule:
+    """Lazy loads a tensorflow module."""
+
+    def __init__(self, url: str):
+        self.url = url
+        self.module = None
+
+    def __getattr__(self, name: str):
+        if self.module is None:
+            self.module = hub.load(self.url)
+        return getattr(self.module, name)
+
+    def __call__(self, *args, **kwargs):
+        if self.module is None:
+            self.module = hub.load(self.url)
+        return self.module(*args, **kwargs)
+
+
+TEXT_ENCODER = LazyTFModule(
+    "https://tfhub.dev/google/universal-sentence-encoder-large/5"
+)
+
+def embed_text(input: list[str] | str, batch_size: int = 1) -> tf.Tensor:
+    """Embeds a string using the Universal Sentence Encoder. Copies the string
+        to fill the batch dimension.
+
+    Args:
+        input (str): The string to embed.
+        batch_size (int, optional): . Defaults to 1.
+
+    Returns:
+        tf.Tensor: A tensor of shape (batch_size, 512).
+    """
+    if isinstance(input, str):
+        input = input.lstrip(' ').rstrip(' ')
+        input = np.tile(np.array(input), (batch_size,))
+    embedded = TEXT_ENCODER(input).numpy()[0]
+    return tf.reshape(
+        tf.convert_to_tensor(embedded, dtype=tf.float32), (batch_size, 512)
+    )
 
 def run(model: torch.nn.Module, action_tokenizer):
     """
@@ -462,6 +531,75 @@ def run(model: torch.nn.Module, action_tokenizer):
             # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
         )
 
+    action_space = spaces.Dict(
+        OrderedDict(
+            [
+                ("terminate_episode", spaces.Discrete(4)),
+                (
+                    "world_vector",
+                    spaces.Box(low=-0.1, high=0.1, shape=(3,), dtype=np.float32),
+                ),
+                (
+                    "rotation_delta",
+                    spaces.Box(
+                        low=-np.pi / 5, high=np.pi / 5, shape=(3,), dtype=np.float32
+                    ),
+                ),
+                (
+                    "gripper_closedness_action",
+                    spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),
+                ),
+            ]
+        )
+    )
+
+    args = {
+        "mode": "train",
+        "device": "cuda",
+        "data_path": "/content/IO_pybullet_open_dataset/Panda_pick",
+        "cam_view": ["front", "wrist"],
+        "log_dir": "logs",
+        "time_sequence_length": 6,
+        "lr": 0.0001,
+        "batch_size": 2,
+        "epochs": 50,
+        "resume": False,
+        "resume_from_checkpoint": "",
+        "predicting_next_ts": True,
+        "world_size": 1,
+        "dist_url": "env://",
+        "val_interval": 1,
+        "num_val_threads": 25,
+        "num_train_episode": 200,
+        "num_val_episode": 10,
+        "using_proprioception": False,
+        "network_configs": {
+            "vocab_size": 256,
+            "token_embedding_size_per_image": 512,
+            "language_embedding_size": 512,
+            "num_layers": 8,
+            "layer_size": 128,
+            "num_heads": 8,
+            "feed_forward_size": 512,
+            "dropout_rate": 0.1,
+            "crop_size": 236,
+            "use_token_learner": True,
+        },
+        "scheduler_configs": {"T_0": 10, "T_mult": 2, "eta_min": 1e-6, "verbose": True},
+    }
+    network_configs = args["network_configs"]
+    # Modify network configuration based on specific settings
+    network_configs["time_sequence_length"] = args["time_sequence_length"]
+    network_configs["num_encoders"] = len(args["cam_view"])
+    network_configs["token_embedding_size"] = network_configs[
+        "token_embedding_size_per_image"
+    ] * len(args["cam_view"])
+    del network_configs["token_embedding_size_per_image"]
+    network_configs["using_proprioception"] = args["using_proprioception"]
+    network_configs["input_tensor_space"] = state_space_list()[0]
+    network_configs["output_tensor_space"] = action_space
+    model = TransformerNetwork(**network_configs)
+
     steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
     num_steps = steps_per_epoch * FLAGS.num_epochs - warmup_period
@@ -489,8 +627,8 @@ def run(model: torch.nn.Module, action_tokenizer):
                     output_device=get_rank(),
                     find_unused_parameters=True)
 
-        model.run = model.module.run
-        model.train_step = model.module.train_step
+        # model.run = model.module.run
+        # model.train_step = model.module.train_step
         if is_main_process():
             wandb.watch(model.module, log_freq=100)
 
@@ -517,6 +655,7 @@ def run(model: torch.nn.Module, action_tokenizer):
     # ax, lr = lr_finder.plot(suggest_lr=True) # to inspect the loss-learning rate graph
     # print('\n\n\n lr', lr)
     # lr_finder.reset() # to reset the model and optimizer to their initial state
+ 
     for epoch in range(FLAGS.num_epochs):
         # if torch.cuda.device_count() > 1:
         #     train_data_loader.sampler.set_epoch(epoch)
@@ -525,49 +664,71 @@ def run(model: torch.nn.Module, action_tokenizer):
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
 
-            if step_num % 250 == 0:
-                if is_main_process():
-                    eval(model, action_tokenizer, writer, step_num,
-                         eval_data_loader, criterion, device, FLAGS.baselines,
-                         conditioning_scale)
-                if torch.cuda.device_count() > 1:
-                    dist.barrier()
+            # if step_num % 250 == 0:
+            #     if is_main_process():
+            #         eval(model, action_tokenizer, writer, step_num,
+            #              eval_data_loader, criterion, device, FLAGS.baselines,
+            #              conditioning_scale)
+            #     if torch.cuda.device_count() > 1:
+            #         dist.barrier()
             # if i == 250:
             #     break
 
-            video = rearrange(sample['observation']['image_primary'] / 255.0,
-                              'b f h w c -> b f c h w').to(device)
+            video = sample['observation']['image_primary']
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)[:,-1,:]
+            
+
+            obs = {'image': video, 'natural_language_embedding': repeat(embed_text(instructions), 'b n -> b f n', f=video.shape[1])}
+
+            model.module.set_actions(dict_to_device({
+                'terminate_episode': torch.zeros((4, 1), dtype=torch.long),
+                'world_vector':     sample['action'][:,3],
+                'rotation_delta':   sample['action'][:,3:],
+                'gripper_closedness_action': sample['action'][:,6]
+            }, device))
+            network_state = np_to_tensor(
+                batched_space_sampler(
+                    model.module._state_space,
+                    batch_size=args["batch_size"],
+                )
+            )
+            output_actions, network_state = model(
+                dict_to_device(obs, device),
+                dict_to_device(network_state, device),
+            )
+
+
+            loss = model.module.get_actor_loss().mean()
 
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
             optimizer.zero_grad()
             # with torch.cuda.amp.autocast():
 
-            outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
-            out_preds = torch.max(outs, -1)[1]
+            # outs = reduce(model.train_step(video, instructions), 'b f a bins -> b a bins', 'mean')
+            # out_preds = torch.max(outs, -1)[1]
 
-            loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
-                             rearrange(ground_truth, 'b a -> (b a)'))
+            # loss = criterion(rearrange(outs, 'b a bins -> (b a) bins'),
+            #                  rearrange(ground_truth, 'b a -> (b a)'))
             loss.backward()
             optimizer.step()
-            acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
+            # acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
                 writer.add_scalar('loss',
                                   float(loss.to('cpu').detach().numpy()),
                                   step_num)
-                writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()),
-                                  step_num)
+                # writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()),
+                #                   step_num)
                 wandb.log(
                     {
                         'loss': float(loss.to('cpu').detach().numpy()),
-                        'acc': float(acc.to('cpu').detach().numpy()),
+                        # 'acc': float(acc.to('cpu').detach().numpy()),
                         'lr': optimizer.param_groups[0]['lr'],
-                        'x_pred_train': out_preds[0, 8],
-                        'x_gt_train': ground_truth[0, 8],
-                        'instruction_train': instructions[0],
+                        # 'x_pred_train': out_preds[0, 8],
+                        # 'x_gt_train': ground_truth[0, 8],
+                        # 'instruction_train': instructions[0],
                         'batch_idx': i,
                         'train_step': step_num
                     })
