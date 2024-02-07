@@ -684,9 +684,9 @@ def run(model: torch.nn.Module, action_tokenizer):
 
             model.module.set_actions(dict_to_device({
                 'terminate_episode': torch.ones((4, 1), dtype=torch.long),
-                'world_vector':     sample['action'][:,3],
-                'rotation_delta':   sample['action'][:,3:],
-                'gripper_closedness_action': sample['action'][:,6]
+                'world_vector':     sample['action'][:,-1,3],
+                'rotation_delta':   sample['action'][:,-1,3:],
+                'gripper_closedness_action': sample['action'][:,-1,6]
             }, device))
             network_state = np_to_tensor(
                 batched_space_sampler(
