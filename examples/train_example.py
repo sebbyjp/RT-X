@@ -537,17 +537,17 @@ def run(model: torch.nn.Module, action_tokenizer):
                 ("terminate_episode", spaces.Discrete(4)),
                 (
                     "world_vector",
-                    spaces.Box(low=-0.1, high=0.1, shape=(3,), dtype=np.float32),
+                    spaces.Box(low=-1, high=1, shape=(3,), dtype=np.float32),
                 ),
                 (
                     "rotation_delta",
                     spaces.Box(
-                        low=-np.pi / 5, high=np.pi / 5, shape=(3,), dtype=np.float32
+                        low=-np.pi , high=np.pi, shape=(3,), dtype=np.float32
                     ),
                 ),
                 (
                     "gripper_closedness_action",
-                    spaces.Box(low=-1.0, high=1.0, shape=(1,), dtype=np.float32),
+                    spaces.Box(low=0, high=1.0, shape=(1,), dtype=np.float32),
                 ),
             ]
         )
@@ -557,7 +557,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         "mode": "train",
         "device": "cuda",
         "data_path": "/content/IO_pybullet_open_dataset/Panda_pick",
-        "cam_view": ["front", "wrist"],
+        "cam_view": ["front"],
         "log_dir": "logs",
         "time_sequence_length": 6,
         "lr": 0.0001,
