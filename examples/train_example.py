@@ -674,7 +674,7 @@ def run(model: torch.nn.Module, action_tokenizer):
             # if i == 250:
             #     break
 
-            video = sample['observation']['image_primary']
+            video = rearrange(sample['observation']['image_primary'], 'b f h w c -> b f c h w').to(device)
             instructions = sample['language_instruction']
             ground_truth = action_tokenizer.tokenize_xyzrpyg(
                 sample['action'], device)[:,-1,:]
