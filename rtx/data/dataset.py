@@ -150,14 +150,14 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                 "primary": dict(
                     random_resized_crop=dict(scale=[0.8, 1.0], ratio=[0.9, 1.1]),
                     random_brightness=[0.1],
-                    random_contrast=[0.9, 1.1],
-                    random_saturation=[0.9, 1.1],
+                    # random_contrast=[0.9, 1.1],
+                    # random_saturation=[0.9, 1.1],
                     random_hue=[0.05],
                     augment_order=[
                         "random_resized_crop",
                         "random_brightness",
-                        "random_contrast",
-                        "random_saturation",
+                        # "random_contrast",
+                        # "random_saturation",
                         "random_hue",
                     ],
                 ),
@@ -166,10 +166,10 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                 primary=(224, 224),
                 # wrist=(128, 128),
             ),
-            # num_parallel_calls=200,
+            num_parallel_calls=200,
         ),
-        # traj_transform_threads=18,
-        # traj_read_threads=18,
+        traj_transform_threads=18,
+        traj_read_threads=18,
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
