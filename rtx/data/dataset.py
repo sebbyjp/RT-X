@@ -166,7 +166,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                 primary=(224, 224),
                 wrist=(128, 128),
             ),
-            num_parallel_calls=,
+            num_parallel_calls=36,
         ),
         traj_transform_threads=18,
         traj_read_threads=18,
