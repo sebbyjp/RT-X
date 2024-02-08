@@ -603,6 +603,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     model = TransformerNetwork(**network_configs)
     if FLAGS.weights_path:
         model.load_state_dict(torch.load(FLAGS.weights_path))
+        if is_main_process():
+            print(f'Loaded weights from {FLAGS.weights_path}')
 
     # steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps
@@ -667,8 +669,6 @@ def run(model: torch.nn.Module, action_tokenizer):
             print(f'epoch {epoch}')
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
-            print(sample.keys())
-            exit()
 
             # if step_num % 250 == 0:
             #     if is_main_process():
