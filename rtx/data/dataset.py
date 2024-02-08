@@ -128,7 +128,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
         data_dir,
-        load_camera_views=("primary"),
+        load_camera_views=("primary", "wrist"),
        action_proprio_normalization_type= NormalizationType.NONE,
     )
     logging.info("Creating interleaved OXE dataset {} from {}".format(mix_name, data_dir))
@@ -164,6 +164,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
             } if data_augmentation else {} ,
             resize_size=dict(
                 primary=(224, 224),
+                wrist=(128, 128),
             ),
             num_parallel_calls=48,
         ),
