@@ -128,7 +128,7 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
     dataset_kwargs_list, sample_weights = make_oxe_dataset_kwargs_and_weights(
         mix_name,
         data_dir,
-        load_camera_views=("primary", "wrist"),
+        load_camera_views=("primary"),
        action_proprio_normalization_type= NormalizationType.NONE,
     )
     logging.info("Creating interleaved OXE dataset {} from {}".format(mix_name, data_dir))
@@ -167,8 +167,8 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
             ),
             num_parallel_calls=48,
         ),
-        traj_transform_threads=24,
-        traj_read_threads=24,
+        # traj_transform_threads=24,
+        # traj_read_threads=24,
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
