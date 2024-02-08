@@ -811,6 +811,7 @@ class RT1(nn.Module):
                 *((False,) * config.depth * 2),
             ),
             cond_drop_prob=config.cond_drop_prob,
+            flash=False,
             **conditioner_kwargs,
         )
 

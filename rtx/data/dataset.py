@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 
 class HD5Dataset(Dataset):
-    def __init__(self, hdf5_file, transform=None):
+    def __init__(self, hdf5_file, transform=None, window_size=6, future_action_window_size=0, shuffle=True, seed=42):
         """
         Args:
             hdf5_file (string): Path to the hdf5 file with annotations.
@@ -33,6 +33,15 @@ class HD5Dataset(Dataset):
                 transforms.RandomCrop(224),
                 transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
             ])
+        self.window_size = window_size
+        self.future_action_window_size = future_action_window_size
+        self.shuffle = shuffle
+        self.seed = seed
+        self.idxs = np.arange(0, self.length)
+        if self.shuffle:
+            np.random.seed(self.seed)
+            np.random.shuffle(self.idxs)
+
 
         # Open the hdf5 file and get the size of the dataset
         with h5py.File(self.hdf5_file, 'r') as file:
@@ -42,13 +51,28 @@ class HD5Dataset(Dataset):
         return self.length
 
     def __getitem__(self, idx):
+        if idx == self.length:
+            if self.shuffle:
+                np.random.seed(self.seed)
+                np.random.shuffle(self.idxs)
+            idx = 0
+
+        idx = self.idxs[idx]
+
+        observation = np.zeros((self.window_size, 224, 224, 3))
         with h5py.File(self.hdf5_file, 'r') as file:
-            yield {'observation': {"image_primary": self.transform(file['observation/image_head'][idx]),},
-                                #    "image_wrist": sample['observation']['image_wrist']},
-                   'action': {'x:': file['action/x'][idx], 'y': file['action/y'][idx], 'z': file['action/z'][idx],
-                                'yaw': file['action/yaw'][idx], 'pitch': file['action/pitch'][idx], 'roll': file['action/roll'][idx],
-                                'grasp': file['action/grasp'][idx]},
-                   'language_instruction': file['observation/language_instruction'][idx].decode()}
+            if idx - self.window_size < 0:
+                observation[-idx:] = np.array([self.transform(Image.fromarray(np.array(observation['observation/image_head'][i]))) for i in range(idx)])
+            else:
+                observation = np.array([self.transform(Image.fromarray(np.array(observation['observation/image_head'][i]))) for i in range(idx - self.window_size, idx)])
+            # Open the hdf5 file and get the sample
+
+        return {'observation': {"image_primary": observation,},
+                            #    "image_wrist": sample['observation']['image_wrist']},
+            'action': {'x:': file['action/left_hand/x'][idx], 'y': file['action/left_hand/y'][idx], 'z': file['action/left_hand/z'][idx],
+                            'yaw': file['action/left_hand/yaw'][idx], 'pitch': file['action/left_hand/pitch'][idx], 'roll': file['action/left_hand/roll'][idx],
+                            'grasp': file['action/left_hand/grasp'][idx]},
+            'language_instruction': str(file['observation/language_instruction'][idx])}
 
 
 class TorchRLDSDataset(IterableDataset):
