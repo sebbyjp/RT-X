@@ -164,12 +164,12 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
             } if data_augmentation else {} ,
             resize_size=dict(
                 primary=(224, 224),
-                wrist=(128, 128),
+                # wrist=(128, 128),
             ),
-            num_parallel_calls=36,
+            # num_parallel_calls=200,
         ),
-        traj_transform_threads=18,
-        traj_read_threads=18,
+        # traj_transform_threads=18,
+        # traj_read_threads=18,
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
