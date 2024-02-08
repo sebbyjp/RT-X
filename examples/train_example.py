@@ -51,6 +51,7 @@ flags.DEFINE_float("conditioning_scale", 1.0,
 flags.DEFINE_float("label_smoothing", 0.0, "Label smoothing.")
 flags.DEFINE_string("loss", "cse", "Loss function.")
 flags.DEFINE_bool("freeze_vit", False, "Freeze ViT weights.")
+flags.DEFINE_string("weights_path", None, "Path to weights to load.")
 
 def dict_to_device(dict_obj, device):
     """
@@ -491,17 +492,16 @@ def run(model: torch.nn.Module, action_tokenizer):
                         freeze_vit=FLAGS.freeze_vit))
     conditioning_scale = FLAGS.conditioning_scale
     writer = None
-    if is_main_process():
-        writer = SummaryWriter()
-    # train_ds = TorchRLDSDataset(*get_oxe_dataset(
-    #     FLAGS.dataset_name,
-    #     train=True,
-    #     data_augmentation=FLAGS.data_augmentation,
-    #     shuffle_buffer_size=FLAGS.shuffle_buffer_size),
-    #                             train=True,
-    #                             rank=get_rank(),
-    #                             world_size=get_world_size())
-    train_ds = HD5Dataset('/simply_ws/src/robo_transformers/episodes/episode0.hdf5')
+    # if is_main_process():
+    #     writer = SummaryWriter()
+    train_ds = TorchRLDSDataset(*get_oxe_dataset(
+        FLAGS.dataset_name,
+        train=True,
+        data_augmentation=FLAGS.data_augmentation,
+        shuffle_buffer_size=FLAGS.shuffle_buffer_size),
+                                rank=get_rank(),
+                                world_size=get_world_size())
+    # train_ds = HD5Dataset('/simply_ws/src/robo_transformers/episodes/episode0.hdf5')
     eval_ds = None
     # if is_main_process():
     #     eval_ds = TorchRLDSDataset(*get_oxe_dataset(
@@ -601,6 +601,8 @@ def run(model: torch.nn.Module, action_tokenizer):
     network_configs["input_tensor_space"] = state_space_list()[0]
     network_configs["output_tensor_space"] = action_space
     model = TransformerNetwork(**network_configs)
+    if FLAGS.weights_path:
+        model.load_state_dict(torch.load(FLAGS.weights_path))
 
     # steps_per_epoch = len(train_data_loader)
     warmup_period = FLAGS.num_warmup_steps

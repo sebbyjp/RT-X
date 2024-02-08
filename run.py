@@ -35,9 +35,7 @@ def main(_):
     elif FLAGS.mode == "train":
         if FLAGS.pretrained_vit and FLAGS.model == "rtx2":
             logging.fatal("Option `pretrained_vit` is not available for model {} ".format(FLAGS.model))
-        model = REGISTRY[FLAGS.model]['model'](
-            rt1_config = RT1Config(use_attn_conditioner=FLAGS.use_attn_text_conditioner),
-            vit_config= FilmViTConfig(pretrained= FLAGS.pretrained_vit))
+        model = None
         action_tokenizer = REGISTRY[FLAGS.model]['action_tokenizer']()
         train_example.run(model, action_tokenizer)
 
