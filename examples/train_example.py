@@ -765,7 +765,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                 writer.add_scalar('lr', optimizer.param_groups[0]['lr'],
                                   step_num)
 
-            if (step_num + 1) % 1000 == 0:
+            if (step_num + 1) % 100 == 0:
                 # save model
                 if is_main_process():
                     os.makedirs(
