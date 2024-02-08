@@ -502,15 +502,15 @@ def run(model: torch.nn.Module, action_tokenizer):
                                 rank=get_rank(),
                                 world_size=get_world_size())
     eval_ds = None
-    if is_main_process():
-        eval_ds = TorchRLDSDataset(*get_oxe_dataset(
-            FLAGS.dataset_name,
-            train=False,
-            data_augmentation=False,
-            shuffle_buffer_size=FLAGS.shuffle_buffer_size),
-                                   train=False,
-                                   rank=0,
-                                   world_size=1)
+    # if is_main_process():
+    #     eval_ds = TorchRLDSDataset(*get_oxe_dataset(
+    #         FLAGS.dataset_name,
+    #         train=False,
+    #         data_augmentation=False,
+    #         shuffle_buffer_size=FLAGS.shuffle_buffer_size),
+    #                                train=False,
+    #                                rank=0,
+    #                                world_size=1)
 
     train_data_loader = DataLoader(
         train_ds,
@@ -521,16 +521,16 @@ def run(model: torch.nn.Module, action_tokenizer):
         # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
     eval_data_loader = None
-    if is_main_process():
-        eval_data_loader = DataLoader(
-            eval_ds,
-            batch_size=FLAGS.eval_batch_size,
-            num_workers=
-            0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
-            pin_memory=True,
-            # shuffle=True,
-            # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
-        )
+    # if is_main_process():
+    #     eval_data_loader = DataLoader(
+    #         eval_ds,
+    #         batch_size=FLAGS.eval_batch_size,
+    #         num_workers=
+    #         0,  # important to keep this to 0 so PyTorch does not mess with the parallelism
+    #         pin_memory=True,
+    #         # shuffle=True,
+    #         # sampler= DistributedSampler(dataset=eval_ds, shuffle=False) if torch.cuda.device_count() > 1 else None
+    #     )
 
     action_space = spaces.Dict(
         OrderedDict(
@@ -630,8 +630,8 @@ def run(model: torch.nn.Module, action_tokenizer):
 
         # model.run = model.module.run
         # model.train_step = model.module.train_step
-        if is_main_process():
-            wandb.watch(model.module, log_freq=100)
+        # if is_main_process():
+        #     wandb.watch(model.module, log_freq=100)
 
     criterion = nn.MSELoss() if FLAGS.loss == 'mse' else nn.CrossEntropyLoss()
     if is_dist_avail_and_initialized():
