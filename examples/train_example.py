@@ -490,8 +490,8 @@ def run(model: torch.nn.Module, action_tokenizer):
                         label_smoothing=FLAGS.label_smoothing,
                         loss=FLAGS.loss,
                         freeze_vit=FLAGS.freeze_vit))
-    conditioning_scale = FLAGS.conditioning_scale
-    writer = None
+    # conditioning_scale = FLAGS.conditioning_scale
+    # writer = None
     # if is_main_process():
     #     writer = SummaryWriter()
     train_ds = TorchRLDSDataset(*get_oxe_dataset(
@@ -502,7 +502,7 @@ def run(model: torch.nn.Module, action_tokenizer):
                                 rank=get_rank(),
                                 world_size=get_world_size())
     # train_ds = HD5Dataset('/simply_ws/src/robo_transformers/episodes/episode0.hdf5')
-    eval_ds = None
+    # eval_ds = None
     # if is_main_process():
     #     eval_ds = TorchRLDSDataset(*get_oxe_dataset(
     #         FLAGS.dataset_name,
@@ -521,7 +521,7 @@ def run(model: torch.nn.Module, action_tokenizer):
         pin_memory=True,
         # sampler= DistributedSampler(dataset=train_ds, shuffle=True) if torch.cuda.device_count() > 1 else None
     )
-    eval_data_loader = None
+    # eval_data_loader = None
     # if is_main_process():
     #     eval_data_loader = DataLoader(
     #         eval_ds,
@@ -737,9 +737,9 @@ def run(model: torch.nn.Module, action_tokenizer):
                 acc = (out_preds == ground_truth).float().mean().detach().to('cpu')
 
             if is_main_process():
-                writer.add_scalar('loss',
-                                  float(loss.to('cpu').detach().numpy()),
-                                  step_num)
+                # writer.add_scalar('loss',
+                #                   float(loss.to('cpu').detach().numpy()),
+                #                   step_num)
                 # writer.add_scalar('acc', float(acc.to('cpu').detach().numpy()),
                 #                   step_num)
                 wandb.log(
@@ -766,9 +766,9 @@ def run(model: torch.nn.Module, action_tokenizer):
                     lr_scheduler.step()
             if warmup_scheduler.last_step + 1 >= max_step:
                 break
-            if is_main_process():
-                writer.add_scalar('lr', optimizer.param_groups[0]['lr'],
-                                  step_num)
+            # if is_main_process():
+            #     writer.add_scalar('lr', optimizer.param_groups[0]['lr'],
+            #                       step_num)
 
             if (step_num + 1) % 100 == 0:
                 # save model
