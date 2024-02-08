@@ -3,7 +3,7 @@ import torch
 from torch import nn, optim
 import tqdm
 from torch.utils.data import DataLoader
-from rtx.data.dataset import get_oxe_dataset, TorchRLDSDataset
+from rtx.data.dataset import get_oxe_dataset, TorchRLDSDataset, HD5Dataset
 from robo_transformers.inference_server import InferenceServer
 from gym import spaces
 from collections import OrderedDict
@@ -493,14 +493,15 @@ def run(model: torch.nn.Module, action_tokenizer):
     writer = None
     if is_main_process():
         writer = SummaryWriter()
-    train_ds = TorchRLDSDataset(*get_oxe_dataset(
-        FLAGS.dataset_name,
-        train=True,
-        data_augmentation=FLAGS.data_augmentation,
-        shuffle_buffer_size=FLAGS.shuffle_buffer_size),
-                                train=True,
-                                rank=get_rank(),
-                                world_size=get_world_size())
+    # train_ds = TorchRLDSDataset(*get_oxe_dataset(
+    #     FLAGS.dataset_name,
+    #     train=True,
+    #     data_augmentation=FLAGS.data_augmentation,
+    #     shuffle_buffer_size=FLAGS.shuffle_buffer_size),
+    #                             train=True,
+    #                             rank=get_rank(),
+    #                             world_size=get_world_size())
+    train_ds = HD5Dataset('/simply_ws/src/robo_transformers/episodes/episode0.hdf5')
     eval_ds = None
     # if is_main_process():
     #     eval_ds = TorchRLDSDataset(*get_oxe_dataset(
@@ -664,6 +665,8 @@ def run(model: torch.nn.Module, action_tokenizer):
             print(f'epoch {epoch}')
             wandb.log({'epoch': epoch})
         for i, sample in tqdm.tqdm(enumerate(train_data_loader)):
+            print(sample.keys())
+            exit()
 
             # if step_num % 250 == 0:
             #     if is_main_process():

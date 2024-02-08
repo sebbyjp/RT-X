@@ -16,51 +16,39 @@ import h5py
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-# class HDF5ImageDataset(Dataset):
-#     def __init__(self, hdf5_file, transform=None):
-#         """
-#         Args:
-#             hdf5_file (string): Path to the hdf5 file with annotations.
-#             transform (callable, optional): Optional transform to be applied
-#                 on a sample.
-#         """
-#         self.hdf5_file = hdf5_file
-#         self.transform = transform
+class HD5Dataset(Dataset):
+    def __init__(self, hdf5_file, transform=None):
+        """
+        Args:
+            hdf5_file (string): Path to the hdf5 file with annotations.
+            transform (callable, optional): Optional transform to be applied
+                on a sample.
+        """
+        self.hdf5_file = hdf5_file
+        self.transform = transform
+        if self.transform is None:
+            # Define your transformations / augmentations
+            self.transform = transforms.Compose([
+                transforms.ToTensor(),
+                transforms.RandomCrop(224),
+                transforms.ColorJitter(brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1),
+            ])
 
-#         # Open the hdf5 file and get the size of the dataset
-#         with h5py.File(self.hdf5_file, 'r') as file:
-#             self.length = len(file['images'])
+        # Open the hdf5 file and get the size of the dataset
+        with h5py.File(self.hdf5_file, 'r') as file:
+            self.length = file.attrs['size']
 
-#     def __len__(self):
-#         return self.length
+    def __len__(self):
+        return self.length
 
-#     def __getitem__(self, idx):
-#         with h5py.File(self.hdf5_file, 'r') as file:
-#             image = file['observation']['image_head'][idx]
-#             # Assuming the label is also stored in the same HDF5 file
-#             label = file['labels'][idx]
-
-#         # Convert image to numpy array if not already
-#         image = np.array(image)
-
-#         # Convert to PIL Image for compatibility with torchvision transforms
-#         image = Image.fromarray(image.astype('uint8'), 'RGB')
-
-#         if self.transform:
-#             image = self.transform(image)
-
-#         return image, label
-
-# # Define your transformations / augmentations
-# transform = transforms.Compose([
-#     transforms.RandomHorizontalFlip(),
-#     transforms.RandomRotation(10),
-#     transforms.ToTensor(),
-#     transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-# ])
-
-# # Create the dataset
-# hdf5_dataset = HDF5ImageDataset(hdf5_file='your_dataset.hdf5', transform=transform)
+    def __getitem__(self, idx):
+        with h5py.File(self.hdf5_file, 'r') as file:
+            yield {'observation': {"image_primary": self.transform(file['observation/image_head'][idx]),},
+                                #    "image_wrist": sample['observation']['image_wrist']},
+                   'action': {'x:': file['action/x'][idx], 'y': file['action/y'][idx], 'z': file['action/z'][idx],
+                                'yaw': file['action/yaw'][idx], 'pitch': file['action/pitch'][idx], 'roll': file['action/roll'][idx],
+                                'grasp': file['action/grasp'][idx]},
+                   'language_instruction': file['observation/language_instruction'][idx].decode()}
 
 
 class TorchRLDSDataset(IterableDataset):
