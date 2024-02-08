@@ -97,7 +97,7 @@ class TorchRLDSDataset(IterableDataset):
             mod *= worker_info.num_workers
             shift = self.rank * worker_info.num_workers + worker_info.id
 
-        for i, sample in enumerate(self._rlds_dataset.as_numpy_iterator()):
+        for i, sample in enumerate(self._rlds_dataset.iterator(prefetch=1)):
              if (i + shift) % mod == 0:
                 yield {'observation': {"image_primary": sample['observation']['image_primary']},
                                 #    "image_wrist": sample['observation']['image_wrist']},
@@ -166,10 +166,10 @@ def get_interleaved_oxe_dataset(mix_name: str = "eef_pose_magic_soup", data_dir:
                 primary=(224, 224),
                 wrist=(128, 128),
             ),
-            num_parallel_calls=48,
+            num_parallel_calls=,
         ),
-        # traj_transform_threads=24,
-        # traj_read_threads=24,
+        traj_transform_threads=18,
+        traj_read_threads=18,
     )
 
 def get_single_oxe_dataset(name: str = "fractal20220817_data", data_dir: str = "gs://gresearch/robotics", train: bool = True,
